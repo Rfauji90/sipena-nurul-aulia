@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --primary-color: #1e40af;
+  --primary-light: #e0f2fe;
+  --primary-dark: #1e3a8a;
+  --white: #ffffff;
+}
+
+body {
+  background-color: #f8fafc;
+}
+
+.card {
+  @apply bg-white rounded-lg shadow-lg p-6 border border-blue-100;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-colors duration-200;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+}
+
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-600;
+}
+
+.dropdown-content {
+  @apply hidden absolute right-0 mt-2 w-48 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5;
+}
+
+.dropdown:hover .dropdown-content {
+  @apply block;
+}
+
+.nav-link {
+  @apply flex items-center px-3 py-2 text-white hover:bg-blue-600 rounded-md;
+}
+
+.nav-link.active {
+  @apply bg-blue-800 text-white;
+}
