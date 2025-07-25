@@ -19,6 +19,8 @@ export interface Teacher {
   className: string;
   subject: string;
   position: string;
+  archived?: boolean;
+  archivedDate?: string;
 }
 
 export interface Supervision {
@@ -48,10 +50,13 @@ export const getTeachers = async (): Promise<Teacher[]> => {
   try {
     const teachersCollection = collection(db, 'teachers');
     const snapshot = await getDocs(teachersCollection);
-    return snapshot.docs.map(doc => ({
+    const allTeachers = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as Teacher));
+    
+    // Filter out archived teachers
+    return allTeachers.filter(teacher => !teacher.archived);
   } catch (error) {
     console.error('Error getting teachers:', error);
     return [];
@@ -244,5 +249,49 @@ export const deleteClassicSupervision = async (id: string): Promise<void> => {
     await deleteDoc(doc(db, 'classicSupervisions', id));
   } catch (error) {
     console.error('Error deleting classic supervision:', error);
+  }
+};
+
+// Archive Teacher Functions
+export const archiveTeacher = async (id: string): Promise<void> => {
+  try {
+    const teacherDoc = doc(db, 'teachers', id);
+    await updateDoc(teacherDoc, { 
+      archived: true,
+      archivedDate: new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+    });
+  } catch (error) {
+    console.error('Error archiving teacher:', error);
+    throw error;
+  }
+};
+
+export const unarchiveTeacher = async (id: string): Promise<void> => {
+  try {
+    const teacherDoc = doc(db, 'teachers', id);
+    await updateDoc(teacherDoc, { 
+      archived: false,
+      archivedDate: null
+    });
+  } catch (error) {
+    console.error('Error unarchiving teacher:', error);
+    throw error;
+  }
+};
+
+export const getArchivedTeachers = async (): Promise<Teacher[]> => {
+  try {
+    const teachersCollection = collection(db, 'teachers');
+    const snapshot = await getDocs(teachersCollection);
+    const allTeachers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Teacher));
+    
+    // Filter only archived teachers
+    return allTeachers.filter(teacher => teacher.archived);
+  } catch (error) {
+    console.error('Error getting archived teachers:', error);
+    return [];
   }
 };

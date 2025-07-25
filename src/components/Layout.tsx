@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, ChartBar, ChevronDown, ClipboardList, FileText, House, Menu, School, Users, X } from 'lucide-react';
+import { Archive, BookOpen, ChartBar, ChevronDown, ClipboardList, FileText, House, LogOut, Menu, School, Users, X } from 'lucide-react';
+import { useAuth } from '../utils/authContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +10,7 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { userRole, logout } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path ? 'active' : '';
@@ -48,6 +50,10 @@ const Layout = ({ children }: LayoutProps) => {
                 <Users className="mr-2 h-5 w-5" />
                 <span>Data Guru</span>
               </Link>
+              <Link to="/archived-teachers" className={`nav-link text-white hover:bg-blue-600 ${isActive('/archived-teachers')}`}>
+                <Archive className="mr-2 h-5 w-5" />
+                <span>Arsip Guru</span>
+              </Link>
               <div className="relative dropdown">
                 <button className="nav-link text-white hover:bg-blue-600 flex items-center">
                   <ClipboardList className="mr-2 h-5 w-5" />
@@ -70,6 +76,19 @@ const Layout = ({ children }: LayoutProps) => {
                 <FileText className="mr-2 h-5 w-5" />
                 <span>Syarat & Ketentuan</span>
               </Link>
+              
+              {/* User Role & Logout */}
+              <div className="ml-4 flex items-center">
+                <span className="text-white bg-blue-800 px-2 py-1 rounded-md text-xs mr-2">
+                  {userRole === 'admin' ? 'Admin' : 'Tamu'}
+                </span>
+                <button 
+                  onClick={logout}
+                  className="text-white hover:bg-blue-600 p-2 rounded-md flex items-center"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </div>
             </nav>
             
             {/* Mobile menu button */}
@@ -129,6 +148,18 @@ const Layout = ({ children }: LayoutProps) => {
                 </div>
               </Link>
               <Link 
+                to="/archived-teachers" 
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive('/archived-teachers') ? 'bg-blue-800 text-white' : 'text-white hover:bg-blue-600'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="flex items-center">
+                  <Archive className="mr-3 h-5 w-5" />
+                  <span>Arsip Guru</span>
+                </div>
+              </Link>
+              <Link 
                 to="/admin-supervision" 
                 className={`block px-3 py-2 rounded-md text-base font-medium ${
                   isActive('/admin-supervision') ? 'bg-blue-800 text-white' : 'text-white hover:bg-blue-600'
@@ -176,6 +207,17 @@ const Layout = ({ children }: LayoutProps) => {
                   <span>Syarat & Ketentuan</span>
                 </div>
               </Link>
+              
+              {/* Mobile Logout Button */}
+              <button 
+                onClick={logout}
+                className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-blue-600"
+              >
+                <div className="flex items-center">
+                  <LogOut className="mr-3 h-5 w-5" />
+                  <span>Keluar ({userRole === 'admin' ? 'Admin' : 'Tamu'})</span>
+                </div>
+              </button>
             </div>
           </div>
         )}

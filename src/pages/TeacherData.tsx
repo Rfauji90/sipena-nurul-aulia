@@ -1,18 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Teacher, 
   Supervision,
   getTeachers, 
   saveTeacher, 
   deleteTeacher,
+  archiveTeacher,
   getAdminSupervisions,
   getKBMSupervisions,
   getClassicSupervisions
 } from '../utils/helpers';
-import { ArrowUp, Calendar, Check, ChevronLeft, ChevronRight, Download, Eye, Filter, Pencil, Search, Squircle, Trash, User, Users, X } from 'lucide-react';
+import { ArrowUp, Archive, Calendar, Check, ChevronLeft, ChevronRight, Download, Eye, Filter, Pencil, Search, Squircle, Trash, User, Users, X } from 'lucide-react';
+import { useAuth } from '../utils/authContext';
 
 const TeacherData = () => {
+  const { userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [allTeachers, setAllTeachers] = useState<Teacher[]>([]); // Store all teachers for client-side filtering
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [formData, setFormData] = useState<Partial<Teacher>>({
     name: '',
     gender: 'male',
@@ -60,12 +69,35 @@ const TeacherData = () => {
   }>({});
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState('');
-  const [showForm, setShowForm] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [genderStats, setGenderStats] = useState({ male: 0, female: 0 });
 
   useEffect(() => {
     loadTeachers();
-  }, [sortConfig, searchTerm, unitFilter]);
+  }, [sortConfig, unitFilter]); // Removed searchTerm from dependencies
+  
+  // Debounce search term
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Set searching state when user is typing
+    if (searchTerm !== debouncedSearchTerm) {
+      setIsSearching(true);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setIsSearching(false);
+    }, 300); // 300ms debounce
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchTerm, debouncedSearchTerm]);
   
   // Initialize class options based on default unit when component mounts
   useEffect(() => {
@@ -122,22 +154,21 @@ const TeacherData = () => {
     try {
       let loadedTeachers = await getTeachers();
       
-      // Filter teachers based on search term
-      if (searchTerm) {
-        loadedTeachers = loadedTeachers.filter(teacher => 
-          teacher.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
+      // Store all teachers for client-side filtering
+      setAllTeachers(loadedTeachers || []);
+      
+      // Apply current filters
+      let filteredTeachers = loadedTeachers || [];
       
       // Filter by unit if selected
       if (unitFilter) {
-        loadedTeachers = loadedTeachers.filter(teacher => teacher.unit === unitFilter);
+        filteredTeachers = filteredTeachers.filter(teacher => teacher.unit === unitFilter);
       }
       
-      // Check if loadedTeachers is an array before sorting
-      if (Array.isArray(loadedTeachers) && loadedTeachers.length > 0) {
+      // Check if filteredTeachers is an array before sorting
+      if (Array.isArray(filteredTeachers) && filteredTeachers.length > 0) {
         // Sort teachers
-        loadedTeachers.sort((a, b) => {
+        filteredTeachers.sort((a, b) => {
           if (a[sortConfig.key as keyof Teacher] < b[sortConfig.key as keyof Teacher]) {
             return sortConfig.direction === 'ascending' ? -1 : 1;
           }
@@ -148,15 +179,57 @@ const TeacherData = () => {
         });
       }
       
-      setTeachers(loadedTeachers || []);
+      setTeachers(filteredTeachers);
     } catch (err) {
       console.error('Error loading teachers:', err);
       setError('Failed to load teacher data. Please try again later.');
       setTeachers([]);
+      setAllTeachers([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Fungsi untuk mengupdate opsi kelas berdasarkan unit yang dipilih
+  // Client-side filtering with memoization for better performance
+  const filteredTeachers = useMemo(() => {
+    let filtered = [...allTeachers];
+    
+    // Filter by search term
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter(teacher => 
+        teacher.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        teacher.subject.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        teacher.position.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        teacher.unit.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+    
+    // Filter by unit
+    if (unitFilter) {
+      filtered = filtered.filter(teacher => teacher.unit === unitFilter);
+    }
+    
+    // Sort
+    if (filtered.length > 0) {
+      filtered.sort((a, b) => {
+        if (a[sortConfig.key as keyof Teacher] < b[sortConfig.key as keyof Teacher]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key as keyof Teacher] > b[sortConfig.key as keyof Teacher]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return filtered;
+  }, [allTeachers, debouncedSearchTerm, unitFilter, sortConfig]);
+
+  // Update teachers when filtered results change
+  useEffect(() => {
+    setTeachers(filteredTeachers);
+  }, [filteredTeachers]);
 
   // Fungsi untuk mengupdate opsi kelas berdasarkan unit yang dipilih
   const updateClassOptions = (unit: string) => {
@@ -353,6 +426,22 @@ const TeacherData = () => {
     }
   };
 
+  const handleArchive = async (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin mengarsipkan guru ini? Data akan dipindahkan ke arsip guru.')) {
+      setLoading(true);
+      try {
+        await archiveTeacher(id);
+        await loadTeachers(); // Reload data to remove archived teacher from list
+        alert('Guru berhasil diarsipkan!');
+      } catch (err) {
+        console.error('Error archiving teacher:', err);
+        alert('Gagal mengarsipkan guru. Silakan coba lagi.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleDetail = async (teacher: Teacher) => {
     setSelectedTeacher(teacher);
     setLoading(true);
@@ -405,13 +494,13 @@ const TeacherData = () => {
       <Squircle size={16} className="ml-1 inline" />;
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  };
+  }, []);
   
-  const handleUnitFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleUnitFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setUnitFilter(e.target.value as 'RA' | 'SD' | 'SMP' | '');
-  };
+  }, []);
 
   const handleReadMore = (note: string) => {
     setSelectedNote(note);
@@ -420,6 +509,21 @@ const TeacherData = () => {
 
   const toggleForm = () => {
     setShowForm(!showForm);
+    // Reset form when opening
+    if (!showForm) {
+      setFormData({
+        name: '',
+        gender: 'male',
+        unit: 'SD',
+        className: '',
+        subject: '',
+        position: ''
+      });
+      setIsEditing(false);
+      setPositionDetail('');
+      setSelectedClasses([]);
+      updateClassOptions('SD');
+    }
   };
 
   const exportToCSV = async () => {
@@ -523,19 +627,20 @@ const TeacherData = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Collapsible Form Section */}
-      <div className={`transition-all duration-300 ease-in-out ${showForm ? 'lg:col-span-4' : 'lg:col-span-1'}`}>
+      {/* Collapsible Form Section - Only show when showForm is true */}
+      {isAdmin && showForm && (
+      <div className="lg:col-span-4">
         <div className="card relative">
           {/* Toggle button to show/hide form */}
           <div 
             className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-blue-600 p-1 rounded-full cursor-pointer shadow-md z-10 hover:bg-blue-700"
             onClick={toggleForm}
           >
-            {showForm ? <ChevronLeft size={20} className="text-white" /> : <ChevronRight size={20} className="text-white" />}
+            <ChevronLeft size={20} className="text-white" />
           </div>
 
-          {/* Form content - conditionally render based on showForm state */}
-          <div className={`${showForm ? 'block' : 'hidden'}`}>
+          {/* Form content */}
+          <div>
             <h2 className="text-xl font-semibold mb-4 text-blue-700">
               {isEditing ? 'Edit Data Guru' : 'Tambah Data Guru'}
             </h2>
@@ -725,13 +830,34 @@ const TeacherData = () => {
           </div>
         </div>
       </div>
+      )}
       
-      {/* Teacher Data Section - will expand when form is hidden */}
-      <div className={`transition-all duration-300 ease-in-out ${showForm ? 'lg:col-span-8' : 'lg:col-span-11'}`}>
+      {/* Guest notification - only show when not admin and form is not shown */}
+      {!isAdmin && (
+        <div className="lg:col-span-12 mb-4">
+          <div className="bg-yellow-100 text-yellow-800 p-3 rounded-md">
+            Anda masuk sebagai Tamu. Hanya dapat melihat data tanpa akses untuk menambah, mengubah, atau menghapus.
+          </div>
+        </div>
+      )}
+      
+      {/* Teacher Data Section */}
+      <div className={`${isAdmin && showForm ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-blue-700">Daftar Guru</h2>
             <div className="flex items-center space-x-2">
+              {/* Add Teacher Button - only show for admin when form is not shown */}
+              {isAdmin && !showForm && (
+                <button 
+                  onClick={toggleForm}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
+                  title="Tambah Data Guru"
+                >
+                  <User size={16} className="mr-2" />
+                  Tambah Data Guru
+                </button>
+              )}
               <button 
                 onClick={exportToCSV}
                 className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md flex items-center"
@@ -747,11 +873,16 @@ const TeacherData = () => {
                     type="text"
                     value={searchTerm}
                     onChange={handleSearchChange}
-                    placeholder="Cari nama guru..."
-                    className="pl-8 pr-4 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Cari nama, mata pelajaran, jabatan, atau unit..."
+                    className="pl-8 pr-10 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
                     disabled={loading}
                   />
                   <Search size={16} className="absolute left-2.5 top-2 text-gray-400" />
+                  {isSearching && (
+                    <div className="absolute right-2.5 top-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center">
                   <Filter size={16} className="text-blue-600 mr-1" />
@@ -768,6 +899,24 @@ const TeacherData = () => {
                   </select>
                 </div>
               </div>
+              
+              {/* Search Results Info */}
+              {(debouncedSearchTerm || unitFilter) && (
+                <div className="mb-4 text-sm text-gray-600">
+                  {debouncedSearchTerm && (
+                    <span>
+                      Hasil pencarian untuk "<strong>{debouncedSearchTerm}</strong>"
+                      {unitFilter && ` di unit ${unitFilter}`}: {teachers.length} guru ditemukan
+                    </span>
+                  )}
+                  {!debouncedSearchTerm && unitFilter && (
+                    <span>Filter unit {unitFilter}: {teachers.length} guru ditemukan</span>
+                  )}
+                  {teachers.length === 0 && (
+                    <span className="text-orange-600"> - Tidak ada data yang sesuai</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -878,32 +1027,53 @@ const TeacherData = () => {
                           {renderSupervisionStatus(teacher.id)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleDetail(teacher)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Detail"
-                              disabled={loading}
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleEdit(teacher)}
-                              className="text-yellow-600 hover:text-yellow-900"
-                              title="Edit"
-                              disabled={loading}
-                            >
-                              <Pencil size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(teacher.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Hapus"
-                              disabled={loading}
-                            >
-                              <Trash size={18} />
-                            </button>
-                          </div>
+                          {isAdmin ? (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleDetail(teacher)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Detail"
+                                disabled={loading}
+                              >
+                                <Eye size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(teacher)}
+                                className="text-yellow-600 hover:text-yellow-900"
+                                title="Edit"
+                                disabled={loading}
+                              >
+                                <Pencil size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleArchive(teacher.id)}
+                                className="text-orange-600 hover:text-orange-900"
+                                title="Arsipkan"
+                                disabled={loading}
+                              >
+                                <Archive size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(teacher.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Hapus"
+                                disabled={loading}
+                              >
+                                <Trash size={18} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleDetail(teacher)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Detail"
+                                disabled={loading}
+                              >
+                                <Eye size={18} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
