@@ -4,10 +4,7 @@ import {
   addDoc, 
   doc, 
   updateDoc, 
-  deleteDoc, 
-  query, 
-  where,
-  setDoc
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -27,6 +24,7 @@ export interface Supervision {
   id: string;
   teacherId: string;
   teacherName: string;
+  teacherGender?: 'male' | 'female';
   unit?: 'RA' | 'SD' | 'SMP';
   date: string;
   score: number;

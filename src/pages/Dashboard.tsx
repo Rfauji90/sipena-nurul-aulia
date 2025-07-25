@@ -31,17 +31,6 @@ ChartJS.register(
   Legend
 );
 
-// Helper function to format dates
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
-// Helper function to sort supervisions by date
-const sortByDate = (supervisions: Supervision[]) => {
-  return [...supervisions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-};
-
 // Helper function to group supervisions by month
 const groupByMonth = (supervisions: Supervision[]) => {
   const grouped: { [key: string]: Supervision[] } = {};

@@ -30,7 +30,8 @@ const KBMSupervision = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState('');
-  const [selectedTeacherGender, setSelectedTeacherGender] = useState<'male' | 'female' | ''>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_selectedTeacherGender, setSelectedTeacherGender] = useState<'male' | 'female' | ''>('');
 
   useEffect(() => {
     loadData();

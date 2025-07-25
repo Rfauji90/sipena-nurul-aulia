@@ -7,7 +7,6 @@ import {
 } from '../utils/helpers';
 import { useAuth } from '../utils/authContext';
 import { 
-  Users, 
   User, 
   Eye, 
   RotateCcw, 
@@ -158,10 +157,15 @@ const ArchivedTeachers = () => {
       return matchesSearch && matchesUnit;
     })
     .sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
+      const aValue = a[sortConfig.key as keyof Teacher];
+      const bValue = b[sortConfig.key as keyof Teacher];
+      
+      if (aValue == null || bValue == null) return 0;
+      
+      if (aValue < bValue) {
         return sortConfig.direction === 'ascending' ? -1 : 1;
       }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
+      if (aValue > bValue) {
         return sortConfig.direction === 'ascending' ? 1 : -1;
       }
       return 0;

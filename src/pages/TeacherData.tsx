@@ -10,7 +10,7 @@ import {
   getKBMSupervisions,
   getClassicSupervisions
 } from '../utils/helpers';
-import { ArrowUp, Archive, Calendar, Check, ChevronLeft, ChevronRight, Download, Eye, Filter, Pencil, Search, Squircle, Trash, User, Users, X } from 'lucide-react';
+import { ArrowUp, Archive, Calendar, Check, ChevronLeft, Download, Eye, Filter, Pencil, Search, Squircle, Trash, User, Users, X } from 'lucide-react';
 import { useAuth } from '../utils/authContext';
 
 const TeacherData = () => {
@@ -169,10 +169,15 @@ const TeacherData = () => {
       if (Array.isArray(filteredTeachers) && filteredTeachers.length > 0) {
         // Sort teachers
         filteredTeachers.sort((a, b) => {
-          if (a[sortConfig.key as keyof Teacher] < b[sortConfig.key as keyof Teacher]) {
+          const aValue = a[sortConfig.key as keyof Teacher];
+          const bValue = b[sortConfig.key as keyof Teacher];
+          
+          if (aValue == null || bValue == null) return 0;
+          
+          if (aValue < bValue) {
             return sortConfig.direction === 'ascending' ? -1 : 1;
           }
-          if (a[sortConfig.key as keyof Teacher] > b[sortConfig.key as keyof Teacher]) {
+          if (aValue > bValue) {
             return sortConfig.direction === 'ascending' ? 1 : -1;
           }
           return 0;
@@ -213,10 +218,15 @@ const TeacherData = () => {
     // Sort
     if (filtered.length > 0) {
       filtered.sort((a, b) => {
-        if (a[sortConfig.key as keyof Teacher] < b[sortConfig.key as keyof Teacher]) {
+        const aValue = a[sortConfig.key as keyof Teacher];
+        const bValue = b[sortConfig.key as keyof Teacher];
+        
+        if (aValue == null || bValue == null) return 0;
+        
+        if (aValue < bValue) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
-        if (a[sortConfig.key as keyof Teacher] > b[sortConfig.key as keyof Teacher]) {
+        if (aValue > bValue) {
           return sortConfig.direction === 'ascending' ? 1 : -1;
         }
         return 0;
