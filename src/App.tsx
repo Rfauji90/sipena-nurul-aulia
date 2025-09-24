@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './utils/authContext';
 import './index.css';
+import HeadmasterNotes from './pages/HeadmasterNotes';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
@@ -135,6 +136,14 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Terms />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/headmaster-notes" element={
+              <ProtectedRoute>
+                <Layout>
+                  <HeadmasterNotes />
                 </Layout>
               </ProtectedRoute>
             } />

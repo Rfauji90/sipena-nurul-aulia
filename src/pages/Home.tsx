@@ -1,7 +1,74 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, ChartBar, ClipboardList, FileText, School, Users } from 'lucide-react';
+import { 
+  getAdminSupervisions,
+  getKBMSupervisions,
+  getClassicSupervisions,
+  Supervision
+} from '../utils/helpers';
+
+// Extend the Supervision interface to include type
+interface ExtendedSupervision extends Supervision {
+  type: string;
+}
 
 const Home = () => {
+  const [recentUpdates, setRecentUpdates] = useState<ExtendedSupervision[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadRecentUpdates();
+  }, []);
+
+  const loadRecentUpdates = async () => {
+    setLoading(true);
+    try {
+      // Load all types of supervisions
+      const adminSupervisions = await getAdminSupervisions();
+      const kbmSupervisions = await getKBMSupervisions();
+      const classicSupervisions = await getClassicSupervisions();
+
+      // Combine all supervisions with type information
+      const allSupervisions: ExtendedSupervision[] = [
+        ...adminSupervisions.map(s => ({ ...s, type: 'ADM' })),
+        ...kbmSupervisions.map(s => ({ ...s, type: 'KBM' })),
+        ...classicSupervisions.map(s => ({ ...s, type: 'Klasik' }))
+      ];
+
+      // Sort by date (newest first) and take the 5 most recent
+      const sorted = allSupervisions.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      ).slice(0, 5);
+
+      setRecentUpdates(sorted);
+    } catch (error) {
+      console.error("Error loading recent updates:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to get the supervision type name
+  const getSupervisionTypeName = (type: string) => {
+    switch (type) {
+      case 'ADM': return 'Administrasi';
+      case 'KBM': return 'Kegiatan Belajar Mengajar';
+      case 'Klasik': return 'Klasik';
+      default: return type;
+    }
+  };
+
+  // Function to get the supervision type color
+  const getSupervisionTypeColor = (type: string) => {
+    switch (type) {
+      case 'ADM': return 'bg-purple-100 text-purple-800';
+      case 'KBM': return 'bg-yellow-100 text-yellow-800';
+      case 'Klasik': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Hero Section */}
@@ -82,6 +149,60 @@ const Home = () => {
               <h3 className="font-semibold text-gray-800">Syarat & Ketentuan</h3>
               <p className="text-sm text-gray-600">Ketentuan penggunaan aplikasi</p>
             </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Recent Updates Section */}
+      <div className="bg-white rounded-xl shadow-md p-6 border border-blue-100">
+        <h2 className="text-xl font-semibold mb-4 text-blue-800 flex items-center">
+          <span className="mr-2">🔔</span> Update Terbaru
+        </h2>
+        
+        {loading ? (
+          <div className="text-center py-4">
+            <p className="text-gray-500">Memuat update terbaru...</p>
+          </div>
+        ) : recentUpdates.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-gray-500 italic">Belum ada update supervisi</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-blue-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guru</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Pendidikan</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis Supervisi</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal & Waktu Pengisian</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {recentUpdates.map((update, index) => (
+                  <tr key={update.id} className="hover:bg-blue-50">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{index + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{update.teacherName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{update.unit || '-'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSupervisionTypeColor(update.type)}`}>
+                        {getSupervisionTypeName(update.type)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {new Date(update.date).toLocaleDateString('id-ID')} - {new Date(update.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        <div className="mt-4 text-center">
+          <Link to="/dashboard" className="text-blue-600 font-medium hover:text-blue-800">
+            Lihat semua update →
           </Link>
         </div>
       </div>

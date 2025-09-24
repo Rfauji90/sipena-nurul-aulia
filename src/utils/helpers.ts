@@ -32,6 +32,15 @@ export interface Supervision {
   notes: string;
 }
 
+export interface HeadmasterNote {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  date: string;
+  categories: string[];
+  note: string;
+}
+
 export const calculateGrade = (score: number): string => {
   if (score >= 91 && score <= 100) {
     return 'A';
@@ -291,5 +300,52 @@ export const getArchivedTeachers = async (): Promise<Teacher[]> => {
   } catch (error) {
     console.error('Error getting archived teachers:', error);
     return [];
+  }
+};
+
+// Headmaster Notes Functions
+export const getHeadmasterNotes = async (): Promise<HeadmasterNote[]> => {
+  try {
+    const notesCollection = collection(db, 'headmasterNotes');
+    const snapshot = await getDocs(notesCollection);
+    return snapshot.docs
+      .filter(doc => doc.id && doc.id.trim() !== '') // Filter out documents without valid IDs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as HeadmasterNote));
+  } catch (error) {
+    console.error('Error getting headmaster notes:', error);
+    return [];
+  }
+};
+
+export const saveHeadmasterNote = async (note: HeadmasterNote): Promise<void> => {
+  try {
+    if (!note.id || note.id.trim() === '') {
+      // Add new note
+      const docRef = await addDoc(collection(db, 'headmasterNotes'), note);
+      note.id = docRef.id;
+    } else {
+      // Update existing note
+      const noteDoc = doc(db, 'headmasterNotes', note.id);
+      await updateDoc(noteDoc, { ...note });
+    }
+  } catch (error) {
+    console.error('Error saving headmaster note:', error);
+    throw error; // Re-throw the error so it can be handled by the caller
+  }
+};
+
+export const deleteHeadmasterNote = async (id: string): Promise<void> => {
+  try {
+    // Validate that we have a proper ID before attempting deletion
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      throw new Error('Invalid document ID provided for deletion');
+    }
+    await deleteDoc(doc(db, 'headmasterNotes', id));
+  } catch (error) {
+    console.error('Error deleting headmaster note:', error);
+    throw error; // Re-throw the error so it can be handled by the caller
   }
 };

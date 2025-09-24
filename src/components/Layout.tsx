@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, BookOpen, ChartBar, ChevronDown, ClipboardList, FileText, House, LogOut, Menu, School, Users, X } from 'lucide-react';
+import { Archive, BookOpen, ChartBar, ChevronDown, ClipboardList, FileText, House, LogOut, Menu, School, Users, X, NotebookPen } from 'lucide-react';
 import { useAuth } from '../utils/authContext';
 
 interface LayoutProps {
@@ -72,6 +72,10 @@ const Layout = ({ children }: LayoutProps) => {
                   </Link>
                 </div>
               </div>
+              <Link to="/headmaster-notes" className={`nav-link text-white hover:bg-blue-600 ${isActive('/headmaster-notes')}`}>
+                <NotebookPen className="mr-2 h-5 w-5" />
+                <span>Catatan KS</span>
+              </Link>
               <Link to="/terms" className={`nav-link text-white hover:bg-blue-600 ${isActive('/terms')}`}>
                 <FileText className="mr-2 h-5 w-5" />
                 <span>Syarat & Ketentuan</span>
@@ -193,6 +197,18 @@ const Layout = ({ children }: LayoutProps) => {
                 <div className="flex items-center">
                   <School className="mr-3 h-5 w-5" />
                   <span>Supervisi Klasik</span>
+                </div>
+              </Link>
+              <Link 
+                to="/headmaster-notes" 
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive('/headmaster-notes') ? 'bg-blue-800 text-white' : 'text-white hover:bg-blue-600'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="flex items-center">
+                  <NotebookPen className="mr-3 h-5 w-5" />
+                  <span>Catatan KS</span>
                 </div>
               </Link>
               <Link 
