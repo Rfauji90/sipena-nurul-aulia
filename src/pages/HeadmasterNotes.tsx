@@ -139,33 +139,45 @@ const HeadmasterNotes = () => {
       alert('Silakan pilih guru terlebih dahulu');
       return;
     }
-
+  
     if (selectedCategories.length === 0) {
       alert('Silakan pilih minimal satu kategori');
       return;
     }
-
+  
     if (!noteText.trim()) {
       alert('Silakan isi catatan');
       return;
     }
-
+  
     setLoading(true);
+    setError(null); // Reset error state
+    
     try {
-      const newNote: HeadmasterNote = {
-        id: editingNoteId && editingNoteId.trim() !== '' ? editingNoteId : '',
+      // Untuk catatan baru, jangan set ID sama sekali
+      // Firebase akan membuatkan ID otomatis
+      const noteData = {
         teacherId: selectedTeacher.id,
         teacherName: selectedTeacher.name,
         date: new Date().toISOString().split('T')[0],
         categories: [...selectedCategories],
-        note: noteText
+        note: noteText.trim()
       };
-
-      await saveHeadmasterNote(newNote);
-
+  
+      // Jika editing catatan lama, gunakan ID yang ada
+      if (editingNoteId && editingNoteId.trim() !== '') {
+        await saveHeadmasterNote({
+          ...noteData,
+          id: editingNoteId
+        });
+      } else {
+        // Untuk catatan baru, kirim tanpa ID
+        await saveHeadmasterNote(noteData as HeadmasterNote);
+      }
+  
       // Refresh notes list
       await loadNotes();
-
+  
       // Reset form
       setSelectedCategories([]);
       setNoteText('');
@@ -173,6 +185,7 @@ const HeadmasterNotes = () => {
       alert('Catatan berhasil disimpan!');
     } catch (err) {
       console.error('Error saving note:', err);
+      setError('Gagal menyimpan catatan. Silakan coba lagi.');
       alert('Gagal menyimpan catatan. Silakan coba lagi.');
     } finally {
       setLoading(false);

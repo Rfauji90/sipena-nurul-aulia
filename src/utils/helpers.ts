@@ -323,9 +323,9 @@ export const getHeadmasterNotes = async (): Promise<HeadmasterNote[]> => {
 export const saveHeadmasterNote = async (note: HeadmasterNote): Promise<void> => {
   try {
     if (!note.id || note.id.trim() === '') {
-      // Add new note
-      const docRef = await addDoc(collection(db, 'headmasterNotes'), note);
-      note.id = docRef.id;
+      // Add new note - create a clean object without ID
+      const { id, ...noteData } = note;
+      await addDoc(collection(db, 'headmasterNotes'), noteData);
     } else {
       // Update existing note
       const noteDoc = doc(db, 'headmasterNotes', note.id);
@@ -333,7 +333,7 @@ export const saveHeadmasterNote = async (note: HeadmasterNote): Promise<void> =>
     }
   } catch (error) {
     console.error('Error saving headmaster note:', error);
-    throw error; // Re-throw the error so it can be handled by the caller
+    throw error;
   }
 };
 
