@@ -7,7 +7,7 @@ import {
   saveHeadmasterNote,
   deleteHeadmasterNote
 } from '../utils/helpers';
-import { Search, User, Save, Eye, Edit, Trash } from 'lucide-react';
+import { Search, User, Save, Edit, Trash } from 'lucide-react';
 import { useAuth } from '../utils/authContext';
 
 const HeadmasterNotes = () => {
