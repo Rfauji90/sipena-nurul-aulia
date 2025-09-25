@@ -5,21 +5,41 @@ import {
   getAdminSupervisions,
   getKBMSupervisions,
   getClassicSupervisions,
-  Supervision
+  getHeadmasterNotes,
+  getTeachers,
+  Supervision,
+  HeadmasterNote,
+  Teacher
 } from '../utils/helpers';
 
-// Extend the Supervision interface to include type
-interface ExtendedSupervision extends Supervision {
+// Create a unified interface for all types of updates
+interface RecentUpdate {
+  id: string;
+  teacherId?: string;
+  teacherName: string;
+  unit?: string;
+  date: string;
+  score?: number;
+  grade?: string;
+  notes?: string;
   type: string;
+  // For HeadmasterNote specific fields
+  categories?: string[];
+  note?: string;
 }
 
 const Home = () => {
-  const [recentUpdates, setRecentUpdates] = useState<ExtendedSupervision[]>([]);
+  const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadRecentUpdates();
   }, []);
+
+  // Add a function to manually refresh updates
+  const refreshUpdates = () => {
+    loadRecentUpdates();
+  };
 
   const loadRecentUpdates = async () => {
     setLoading(true);
@@ -28,18 +48,62 @@ const Home = () => {
       const adminSupervisions = await getAdminSupervisions();
       const kbmSupervisions = await getKBMSupervisions();
       const classicSupervisions = await getClassicSupervisions();
+      const headmasterNotes = await getHeadmasterNotes();
+      const teachers = await getTeachers();
 
-      // Combine all supervisions with type information
-      const allSupervisions: ExtendedSupervision[] = [
+      // Debug: Log the data to see what we're working with
+      console.log('Admin Supervisions:', adminSupervisions);
+      console.log('KBM Supervisions:', kbmSupervisions);
+      console.log('Classic Supervisions:', classicSupervisions);
+      console.log('Headmaster Notes:', headmasterNotes);
+      console.log('Teachers:', teachers);
+
+      // Create a map of teacher ID to teacher for quick lookup
+      const teacherMap = new Map<string, Teacher>();
+      teachers.forEach(teacher => {
+        teacherMap.set(teacher.id, teacher);
+      });
+
+      // Combine all updates with type information
+      const allUpdates: RecentUpdate[] = [
         ...adminSupervisions.map(s => ({ ...s, type: 'ADM' })),
         ...kbmSupervisions.map(s => ({ ...s, type: 'KBM' })),
-        ...classicSupervisions.map(s => ({ ...s, type: 'Klasik' }))
+        ...classicSupervisions.map(s => ({ ...s, type: 'Klasik' })),
+        ...headmasterNotes.map(n => {
+          // Find the teacher to get their unit
+          const teacher = teacherMap.get(n.teacherId);
+          return {
+            id: n.id,
+            teacherId: n.teacherId,
+            teacherName: n.teacherName,
+            date: n.date,
+            type: 'KS',
+            note: n.note,
+            categories: n.categories,
+            unit: teacher ? teacher.unit : undefined
+          };
+        })
       ];
 
+      // Debug: Log combined updates
+      console.log('All Updates:', allUpdates);
+
       // Sort by date (newest first) and take the 5 most recent
-      const sorted = allSupervisions.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      ).slice(0, 5);
+      // More robust date sorting that handles different date formats
+      const sorted = allUpdates.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        
+        // Check if dates are valid
+        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+        if (isNaN(dateA.getTime())) return 1;
+        if (isNaN(dateB.getTime())) return -1;
+        
+        return dateB.getTime() - dateA.getTime();
+      }).slice(0, 5);
+
+      // Debug: Log sorted updates
+      console.log('Sorted Updates:', sorted);
 
       setRecentUpdates(sorted);
     } catch (error) {
@@ -49,22 +113,24 @@ const Home = () => {
     }
   };
 
-  // Function to get the supervision type name
-  const getSupervisionTypeName = (type: string) => {
+  // Function to get the update type name
+  const getUpdateTypeName = (type: string) => {
     switch (type) {
       case 'ADM': return 'Administrasi';
       case 'KBM': return 'Kegiatan Belajar Mengajar';
       case 'Klasik': return 'Klasik';
+      case 'KS': return 'Catatan KS';
       default: return type;
     }
   };
 
-  // Function to get the supervision type color
-  const getSupervisionTypeColor = (type: string) => {
+  // Function to get the update type color
+  const getUpdateTypeColor = (type: string) => {
     switch (type) {
       case 'ADM': return 'bg-purple-100 text-purple-800';
       case 'KBM': return 'bg-yellow-100 text-yellow-800';
       case 'Klasik': return 'bg-red-100 text-red-800';
+      case 'KS': return 'bg-indigo-100 text-indigo-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -140,7 +206,18 @@ const Home = () => {
             </div>
           </Link>
 
-          {/* Terms & Conditions Card */}
+          {/* Headmaster Notes (Penilaian KS) Card - NEW SHORTCUT */}
+          <Link to="/headmaster-notes" className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 flex space-x-4 items-center border border-blue-100">
+            <div className="bg-indigo-100 p-3 rounded-lg">
+              <FileText size={28} className="text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800">Penilaian KS</h3>
+              <p className="text-sm text-gray-600">Catatan Kepala Sekolah</p>
+            </div>
+          </Link>
+
+          {/* Terms & Conditions Card - HIDDEN (commented out)
           <Link to="/terms" className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 flex space-x-4 items-center border border-blue-100">
             <div className="bg-indigo-100 p-3 rounded-lg">
               <FileText size={28} className="text-indigo-600" />
@@ -150,14 +227,24 @@ const Home = () => {
               <p className="text-sm text-gray-600">Ketentuan penggunaan aplikasi</p>
             </div>
           </Link>
+          */}
         </div>
       </div>
 
       {/* Recent Updates Section */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-blue-100">
-        <h2 className="text-xl font-semibold mb-4 text-blue-800 flex items-center">
-          <span className="mr-2">🔔</span> Update Terbaru
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-blue-800 flex items-center">
+            <span className="mr-2">🔔</span> Update Terbaru
+          </h2>
+          <button 
+            onClick={refreshUpdates}
+            className="text-sm text-blue-600 hover:text-blue-800"
+            disabled={loading}
+          >
+            Refresh
+          </button>
+        </div>
         
         {loading ? (
           <div className="text-center py-4">
@@ -186,8 +273,8 @@ const Home = () => {
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{update.teacherName}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{update.unit || '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSupervisionTypeColor(update.type)}`}>
-                        {getSupervisionTypeName(update.type)}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUpdateTypeColor(update.type)}`}>
+                        {getUpdateTypeName(update.type)}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">

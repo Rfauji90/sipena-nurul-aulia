@@ -31,6 +31,9 @@ const TeacherData = () => {
     position: ''
   });
   
+  // State untuk menyimpan semua supervisi untuk perhitungan update terakhir
+  const [allSupervisions, setAllSupervisions] = useState<Supervision[]>([]);
+  
   // State untuk menyimpan opsi kelas berdasarkan unit
   const [classOptions, setClassOptions] = useState<string[]>([]);
   // State untuk menyimpan kelas yang dipilih (untuk SMP yang bisa memilih lebih dari 1 kelas)
@@ -74,6 +77,7 @@ const TeacherData = () => {
 
   useEffect(() => {
     loadTeachers();
+    loadAllSupervisions(); // Load all supervisions for "Update Terakhir" calculation
   }, [sortConfig, unitFilter]); // Removed searchTerm from dependencies
   
   // Debounce search term
@@ -106,6 +110,7 @@ const TeacherData = () => {
 
   useEffect(() => {
     loadSupervisionStatus();
+    loadAllSupervisions(); // Also refresh all supervisions when teachers change
   }, [teachers]);
 
   useEffect(() => {
@@ -145,6 +150,26 @@ const TeacherData = () => {
       setSupervisionStatus(status);
     } catch (err) {
       console.error('Error loading supervision status:', err);
+    }
+  };
+
+  // Load all supervisions for calculating "Update Terakhir"
+  const loadAllSupervisions = async () => {
+    try {
+      const adminSupervisions = await getAdminSupervisions();
+      const kbmSupervisions = await getKBMSupervisions();
+      const classicSupervisions = await getClassicSupervisions();
+      
+      // Combine all supervisions
+      const allSupervisionsCombined = [
+        ...adminSupervisions,
+        ...kbmSupervisions,
+        ...classicSupervisions
+      ];
+      
+      setAllSupervisions(allSupervisionsCombined);
+    } catch (err) {
+      console.error('Error loading all supervisions:', err);
     }
   };
 
@@ -601,6 +626,26 @@ const TeacherData = () => {
     }
   };
 
+  // Function to get the last update date for a teacher based on their supervision records
+  const getLastUpdateForTeacher = (teacherId: string) => {
+    // Filter supervisions for this specific teacher
+    const teacherSupervisionsFiltered = allSupervisions.filter(s => s.teacherId === teacherId);
+    
+    // If no supervisions, return "Belum ada update"
+    if (teacherSupervisionsFiltered.length === 0) {
+      return <span className="text-gray-400 italic">Belum ada update</span>;
+    }
+    
+    // Find the most recent supervision date
+    const latestDate = teacherSupervisionsFiltered.reduce((latest, supervision) => {
+      const supervisionDate = new Date(supervision.date);
+      return supervisionDate > latest ? supervisionDate : latest;
+    }, new Date(0));
+    
+    // Format the date
+    return latestDate.toLocaleDateString('id-ID');
+  };
+
   const renderSupervisionStatus = (teacherId: string) => {
     const status = supervisionStatus[teacherId];
     if (!status) return null;
@@ -1007,6 +1052,9 @@ const TeacherData = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status Supervisi
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Update Terakhir
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                     </tr>
                   </thead>
@@ -1035,6 +1083,10 @@ const TeacherData = () => {
                         </td>
                         <td className="px-4 py-4">
                           {renderSupervisionStatus(teacher.id)}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-700">
+                          {/* We'll implement the last update logic here */}
+                          {getLastUpdateForTeacher(teacher.id)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {isAdmin ? (
