@@ -7,8 +7,6 @@ import {
   getClassicSupervisions,
   getHeadmasterNotes,
   getTeachers,
-  Supervision,
-  HeadmasterNote,
   Teacher
 } from '../utils/helpers';
 
