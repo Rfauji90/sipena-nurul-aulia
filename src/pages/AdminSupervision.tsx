@@ -65,14 +65,16 @@ const AdminSupervision = () => {
       
       const loadedSupervisions = await getAdminSupervisions(unitFilter as 'RA' | 'SD' | 'SMP' | undefined);
       
-      // Enrich supervisions with teacher gender
-      const enrichedSupervisions = loadedSupervisions.map(supervision => {
-        const teacher = loadedTeachers.find(t => t.id === supervision.teacherId);
-        return {
-          ...supervision,
-          teacherGender: teacher ? teacher.gender : 'male'
-        };
-      });
+      // Enrich supervisions with teacher gender and filter out archived ones
+      const enrichedSupervisions = loadedSupervisions
+        .filter(supervision => loadedTeachers.some(t => t.id === supervision.teacherId))
+        .map(supervision => {
+          const teacher = loadedTeachers.find(t => t.id === supervision.teacherId);
+          return {
+            ...supervision,
+            teacherGender: teacher ? teacher.gender : 'male'
+          };
+        });
       
       setSupervisions(enrichedSupervisions);
     } catch (error) {
