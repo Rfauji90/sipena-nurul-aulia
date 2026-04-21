@@ -14,7 +14,6 @@ import {
   getAdminSupervisions,
   getKBMSupervisions,
   getClassicSupervisions,
-  Supervision,
   Teacher
 } from '../utils/helpers';
 import { Filter, AlertTriangle, UserX, TrendingDown, CheckCircle } from 'lucide-react';

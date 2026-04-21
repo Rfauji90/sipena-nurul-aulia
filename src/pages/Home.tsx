@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   BookOpen, 
@@ -8,10 +7,8 @@ import {
   School, 
   Users, 
   Play, 
-  CheckCircle, 
   Zap, 
   Cloud, 
-  Shield, 
   ArrowRight,
   Monitor,
   Layout,
