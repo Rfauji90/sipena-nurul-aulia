@@ -8,7 +8,14 @@ import {
   archiveTeacher,
   getAdminSupervisions,
   getKBMSupervisions,
-  getClassicSupervisions
+  getClassicSupervisions,
+  saveAdminSupervision,
+  deleteAdminSupervision,
+  saveKBMSupervision,
+  deleteKBMSupervision,
+  saveClassicSupervision,
+  deleteClassicSupervision,
+  calculateGrade
 } from '../utils/helpers';
 import { ArrowUp, Archive, Calendar, Check, ChevronLeft, Download, Eye, Filter, Pencil, Search, Squircle, Trash, User, Users, X } from 'lucide-react';
 import { useAuth } from '../utils/authContext';
@@ -65,15 +72,25 @@ const TeacherData = () => {
   const [error, setError] = useState<string | null>(null);
   const [supervisionStatus, setSupervisionStatus] = useState<{
     [teacherId: string]: {
-      adm: boolean;
-      kbm: boolean;
-      klasik: boolean;
+      adm: number;
+      kbm: number;
+      klasik: number;
     }
   }>({});
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [genderStats, setGenderStats] = useState({ male: 0, female: 0 });
+  
+  // Supervision Edit State
+  const [showSupervisionEditModal, setShowSupervisionEditModal] = useState(false);
+  const [editingSupervision, setEditingSupervision] = useState<Partial<Supervision>>({
+    id: '',
+    date: '',
+    score: 0,
+    notes: ''
+  });
+  const [editingSupervisionType, setEditingSupervisionType] = useState<'admin' | 'kbm' | 'classic' | null>(null);
 
   useEffect(() => {
     loadTeachers();
@@ -137,13 +154,13 @@ const TeacherData = () => {
       const kbmSupervisions = await getKBMSupervisions();
       const classicSupervisions = await getClassicSupervisions();
       
-      const status: { [teacherId: string]: { adm: boolean; kbm: boolean; klasik: boolean } } = {};
+      const status: { [teacherId: string]: { adm: number; kbm: number; klasik: number } } = {};
       
       teachers.forEach(teacher => {
         status[teacher.id] = {
-          adm: adminSupervisions.some(s => s.teacherId === teacher.id),
-          kbm: kbmSupervisions.some(s => s.teacherId === teacher.id),
-          klasik: classicSupervisions.some(s => s.teacherId === teacher.id)
+          adm: adminSupervisions.filter(s => s.teacherId === teacher.id).length,
+          kbm: kbmSupervisions.filter(s => s.teacherId === teacher.id).length,
+          klasik: classicSupervisions.filter(s => s.teacherId === teacher.id).length
         };
       });
       
@@ -502,6 +519,84 @@ const TeacherData = () => {
     }
   };
 
+  const handleEditSupervision = (supervision: Supervision, type: 'admin' | 'kbm' | 'classic') => {
+    setEditingSupervision({ ...supervision });
+    setEditingSupervisionType(type);
+    setShowSupervisionEditModal(true);
+  };
+
+  const handleDeleteSupervision = async (id: string, type: 'admin' | 'kbm' | 'classic') => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus penilaian ini?')) {
+      setLoading(true);
+      try {
+        if (type === 'admin') await deleteAdminSupervision(id);
+        else if (type === 'kbm') await deleteKBMSupervision(id);
+        else if (type === 'classic') await deleteClassicSupervision(id);
+        
+        // Refresh detail data
+        if (selectedTeacher) {
+          handleDetail(selectedTeacher);
+        }
+        
+        // Also refresh the main list status
+        loadSupervisionStatus();
+        loadAllSupervisions();
+      } catch (err) {
+        console.error('Error deleting supervision:', err);
+        alert('Gagal menghapus penilaian.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleSaveSupervision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSupervision.date || editingSupervision.score === undefined || !editingSupervision.notes) {
+      alert('Semua field harus diisi');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (editingSupervisionType === 'admin') {
+        await saveAdminSupervision(editingSupervision as Supervision);
+      } else if (editingSupervisionType === 'kbm') {
+        await saveKBMSupervision(editingSupervision as Supervision);
+      } else if (editingSupervisionType === 'classic') {
+        await saveClassicSupervision(editingSupervision as Supervision);
+      }
+      
+      setShowSupervisionEditModal(false);
+      
+      // Refresh detail data
+      if (selectedTeacher) {
+        handleDetail(selectedTeacher);
+      }
+      
+      // Refresh main list
+      loadSupervisionStatus();
+      loadAllSupervisions();
+    } catch (err) {
+      console.error('Error saving supervision:', err);
+      alert('Gagal menyimpan perubahan.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSupervisionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    if (name === 'score') {
+      const score = parseInt(value);
+      if (!isNaN(score) && score >= 0 && score <= 100) {
+        setEditingSupervision(prev => ({ ...prev, [name]: score }));
+      }
+    } else {
+      setEditingSupervision(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
   const handleCancel = () => {
     setFormData({
       name: '',
@@ -561,66 +656,44 @@ const TeacherData = () => {
     }
   };
 
-  const exportToCSV = async () => {
+  const handleExportToExcel = async () => {
     try {
       setLoading(true);
+      const dataToExport = teachers.map((t, i) => ({
+        'No': i + 1,
+        'Nama': t.name,
+        'Jenis Kelamin': t.gender === 'male' ? 'L' : 'P',
+        'Unit': t.unit,
+        'Kelas': t.className,
+        'Mata Pelajaran': t.subject,
+        'Jabatan': t.position,
+        'Update Terakhir': allSupervisions
+          .filter(s => s.teacherId === t.id)
+          .reduce((latest, s) => {
+            const d = new Date(s.date);
+            return d > latest ? d : latest;
+          }, new Date(0))
+          .toLocaleDateString('id-ID')
+      }));
       
-      // Get all teachers
-      const allTeachers = await getTeachers();
-      
-      // Filter based on current unit filter if applied
-      const filteredTeachers = unitFilter 
-        ? allTeachers.filter(teacher => teacher.unit === unitFilter)
-        : allTeachers;
-      
-      // Get all supervisions
-      const adminSupervisions = await getAdminSupervisions();
-      const kbmSupervisions = await getKBMSupervisions();
-      const classicSupervisions = await getClassicSupervisions();
-      
-      // Create CSV header
-      let csvContent = "Nama,Unit,Kelas,Mata Pelajaran,Jabatan,Tipe Supervisi,Tanggal,Nilai,Grade,Catatan\n";
-      
-      // Add data rows
-      for (const teacher of filteredTeachers) {
-        const adminForTeacher = adminSupervisions.filter(s => s.teacherId === teacher.id);
-        const kbmForTeacher = kbmSupervisions.filter(s => s.teacherId === teacher.id);
-        const classicForTeacher = classicSupervisions.filter(s => s.teacherId === teacher.id);
-        
-        // Add admin supervisions
-        for (const supervision of adminForTeacher) {
-          csvContent += `"${teacher.name}","${teacher.unit}","${teacher.className}","${teacher.subject}","${teacher.position}","Administrasi","${supervision.date}","${supervision.score}","${supervision.grade}","${supervision.notes.replace(/"/g, '""')}"\n`;
-        }
-        
-        // Add KBM supervisions
-        for (const supervision of kbmForTeacher) {
-          csvContent += `"${teacher.name}","${teacher.unit}","${teacher.className}","${teacher.subject}","${teacher.position}","KBM","${supervision.date}","${supervision.score}","${supervision.grade}","${supervision.notes.replace(/"/g, '""')}"\n`;
-        }
-        
-        // Add classic supervisions
-        for (const supervision of classicForTeacher) {
-          csvContent += `"${teacher.name}","${teacher.unit}","${teacher.className}","${teacher.subject}","${teacher.position}","Klasik","${supervision.date}","${supervision.score}","${supervision.grade}","${supervision.notes.replace(/"/g, '""')}"\n`;
-        }
-        
-        // If no supervisions, add teacher with empty supervision data
-        if (adminForTeacher.length === 0 && kbmForTeacher.length === 0 && classicForTeacher.length === 0) {
-          csvContent += `"${teacher.name}","${teacher.unit}","${teacher.className}","${teacher.subject}","${teacher.position}","","","","",""\n`;
-        }
-      }
-      
-      // Create and download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `daftar_guru_supervisi_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+      const { exportToExcel } = await import('../utils/exportUtils');
+      exportToExcel(dataToExport, `Daftar_Guru_${unitFilter || 'Semua'}_${new Date().toISOString().split('T')[0]}`);
     } catch (err) {
-      console.error('Error exporting to CSV:', err);
-      alert('Failed to export data. Please try again.');
+      console.error('Error exporting to Excel:', err);
+      alert('Gagal mengekspor data ke Excel.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportToPDF = async () => {
+    try {
+      setLoading(true);
+      const { exportTeachersToPDF } = await import('../utils/exportUtils');
+      exportTeachersToPDF(teachers);
+    } catch (err) {
+      console.error('Error exporting to PDF:', err);
+      alert('Gagal mengekspor data ke PDF.');
     } finally {
       setLoading(false);
     }
@@ -653,24 +726,45 @@ const TeacherData = () => {
     return (
       <div className="flex space-x-2">
         <div className="flex items-center">
-          <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded mr-1">ADM</span>
-          {status.adm ? (
+          <div className="relative">
+            <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded mr-1">ADM</span>
+            {status.adm > 0 && (
+              <span className="absolute -top-2 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white shadow-sm">
+                {status.adm}
+              </span>
+            )}
+          </div>
+          {status.adm > 0 ? (
             <Check size={16} className="text-green-600" />
           ) : (
             <X size={16} className="text-red-600" />
           )}
         </div>
-        <div className="flex items-center">
-          <span className="text-xs font-semibold bg-green-100 text-green-800 px-1.5 py-0.5 rounded mr-1">KBM</span>
-          {status.kbm ? (
+        <div className="flex items-center ml-2">
+          <div className="relative">
+            <span className="text-xs font-semibold bg-green-100 text-green-800 px-1.5 py-0.5 rounded mr-1">KBM</span>
+            {status.kbm > 0 && (
+              <span className="absolute -top-2 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[10px] font-bold text-white shadow-sm">
+                {status.kbm}
+              </span>
+            )}
+          </div>
+          {status.kbm > 0 ? (
             <Check size={16} className="text-green-600" />
           ) : (
             <X size={16} className="text-red-600" />
           )}
         </div>
-        <div className="flex items-center">
-          <span className="text-xs font-semibold bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded mr-1">KLASIK</span>
-          {status.klasik ? (
+        <div className="flex items-center ml-2">
+          <div className="relative">
+            <span className="text-xs font-semibold bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded mr-1">KLASIK</span>
+            {status.klasik > 0 && (
+              <span className="absolute -top-2 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-600 text-[10px] font-bold text-white shadow-sm">
+                {status.klasik}
+              </span>
+            )}
+          </div>
+          {status.klasik > 0 ? (
             <Check size={16} className="text-green-600" />
           ) : (
             <X size={16} className="text-red-600" />
@@ -914,13 +1008,22 @@ const TeacherData = () => {
                 </button>
               )}
               <button 
-                onClick={exportToCSV}
-                className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md flex items-center"
-                title="Export ke CSV"
+                onClick={handleExportToExcel}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-md flex items-center"
+                title="Export ke Excel"
                 disabled={loading}
               >
                 <Download size={16} className="mr-1" />
-                <span className="text-xs">Export CSV</span>
+                <span className="text-xs">Excel</span>
+              </button>
+              <button 
+                onClick={handleExportToPDF}
+                className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-md flex items-center"
+                title="Export ke PDF"
+                disabled={loading}
+              >
+                <Download size={16} className="mr-1" />
+                <span className="text-xs">PDF</span>
               </button>
               <div className="flex items-center space-x-2 ml-2">
                 <div className="relative">
@@ -1052,6 +1155,9 @@ const TeacherData = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status Supervisi
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Jumlah
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Update Terakhir
                       </th>
@@ -1083,6 +1189,11 @@ const TeacherData = () => {
                         </td>
                         <td className="px-4 py-4">
                           {renderSupervisionStatus(teacher.id)}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-center">
+                          <span className="inline-flex items-center justify-center px-2 py-1 text-sm font-bold leading-none text-blue-100 bg-blue-700 rounded-full">
+                            {(supervisionStatus[teacher.id]?.adm || 0) + (supervisionStatus[teacher.id]?.kbm || 0) + (supervisionStatus[teacher.id]?.klasik || 0)}
+                          </span>
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-700">
                           {/* We'll implement the last update logic here */}
@@ -1211,6 +1322,7 @@ const TeacherData = () => {
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catatan</th>
+                            {isAdmin && <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -1244,6 +1356,28 @@ const TeacherData = () => {
                                   <div>{supervision.notes}</div>
                                 )}
                               </td>
+                              {isAdmin && (
+                                <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleEditSupervision(supervision, 'admin')}
+                                      className="text-yellow-600 hover:text-yellow-900"
+                                      title="Edit"
+                                      disabled={loading}
+                                    >
+                                      <Pencil size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSupervision(supervision.id, 'admin')}
+                                      className="text-red-600 hover:text-red-900"
+                                      title="Hapus"
+                                      disabled={loading}
+                                    >
+                                      <Trash size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -1269,6 +1403,7 @@ const TeacherData = () => {
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catatan</th>
+                            {isAdmin && <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -1302,6 +1437,28 @@ const TeacherData = () => {
                                   <div>{supervision.notes}</div>
                                 )}
                               </td>
+                              {isAdmin && (
+                                <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleEditSupervision(supervision, 'kbm')}
+                                      className="text-yellow-600 hover:text-yellow-900"
+                                      title="Edit"
+                                      disabled={loading}
+                                    >
+                                      <Pencil size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSupervision(supervision.id, 'kbm')}
+                                      className="text-red-600 hover:text-red-900"
+                                      title="Hapus"
+                                      disabled={loading}
+                                    >
+                                      <Trash size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -1327,6 +1484,7 @@ const TeacherData = () => {
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catatan</th>
+                            {isAdmin && <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -1360,6 +1518,28 @@ const TeacherData = () => {
                                   <div>{supervision.notes}</div>
                                 )}
                               </td>
+                              {isAdmin && (
+                                <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleEditSupervision(supervision, 'classic')}
+                                      className="text-yellow-600 hover:text-yellow-900"
+                                      title="Edit"
+                                      disabled={loading}
+                                    >
+                                      <Pencil size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSupervision(supervision.id, 'classic')}
+                                      className="text-red-600 hover:text-red-900"
+                                      title="Hapus"
+                                      disabled={loading}
+                                    >
+                                      <Trash size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -1378,6 +1558,94 @@ const TeacherData = () => {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Supervision Modal */}
+      {showSupervisionEditModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-blue-700 capitalize">
+                Edit Supervisi {editingSupervisionType}
+              </h3>
+              <button 
+                onClick={() => setShowSupervisionEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveSupervision}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Tanggal
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={editingSupervision.date}
+                  onChange={handleSupervisionChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Nilai (0-100)
+                </label>
+                <input
+                  type="number"
+                  name="score"
+                  min="0"
+                  max="100"
+                  value={editingSupervision.score}
+                  onChange={handleSupervisionChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                <div className="mt-1 text-sm">
+                  Grade: <span className="font-semibold text-blue-600">
+                    {calculateGrade(editingSupervision.score || 0)}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Catatan
+                </label>
+                <textarea
+                  name="notes"
+                  value={editingSupervision.notes}
+                  onChange={handleSupervisionChange}
+                  rows={4}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                ></textarea>
+              </div>
+              
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={loading}
+                >
+                  {loading ? 'Menyimpan...' : 'Update Penilaian'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSupervisionEditModal(false)}
+                  className="btn btn-secondary flex-1"
+                  disabled={loading}
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

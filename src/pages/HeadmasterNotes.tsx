@@ -38,6 +38,7 @@ const HeadmasterNotes = () => {
   const caseCategories = [
     'Disiplin Kehadiran',
     'Etika & Perilaku',
+    'Kelalaian',
     'Kinerja Mengajar',
     'Administrasi & Tugas Tambahan',
     'Pelanggaran Aturan Sekolah/Etika Profesi'

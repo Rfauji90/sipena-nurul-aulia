@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Archive, BookOpen, ChartBar, ChevronDown, ClipboardList, FileText, House, LogOut, Menu, School, Users, X, NotebookPen } from 'lucide-react';
 import { useAuth } from '../utils/authContext';
@@ -10,8 +10,27 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { userRole, logout } = useAuth();
   
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.dropdown')) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
   const isActive = (path: string) => {
     return location.pathname === path ? 'active' : '';
   };
@@ -30,14 +49,14 @@ const Layout = ({ children }: LayoutProps) => {
                   className="h-10 w-10 mr-3"
                 />
                 <div>
-                  <h1 className="text-xl font-bold text-white">SiPeNa</h1>
-                  <span className="text-sm text-white">Sistem Pengelolaan Nilai Supervisi Nurul Aulia</span>
+                  <h1 className="text-lg font-bold text-white leading-tight">SiPeNa</h1>
+                  <span className="text-xs text-blue-200 hidden sm:block">Sistem Pengelolaan Nilai Supervisi</span>
                 </div>
               </div>
             </div>
             
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-4 items-center">
+            <nav className="hidden lg:flex space-x-1 items-center">
               <Link to="/" className={`nav-link text-white hover:bg-blue-600 ${isActive('/')}`}>
                 <House className="mr-2 h-5 w-5" />
                 <span>Beranda</span>
@@ -55,22 +74,39 @@ const Layout = ({ children }: LayoutProps) => {
                 <span>Arsip Guru</span>
               </Link>
               <div className="relative dropdown">
-                <button className="nav-link text-white hover:bg-blue-600 flex items-center">
+                <button 
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className={`nav-link text-white hover:bg-blue-600 flex items-center focus:outline-none ${location.pathname.includes('supervision') ? 'bg-blue-800' : ''}`}
+                >
                   <ClipboardList className="mr-2 h-5 w-5" />
                   <span>Supervisi</span>
-                  <ChevronDown className="ml-1 h-4 w-4" />
+                  <ChevronDown className={`ml-1 h-4 w-4 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <div className="dropdown-content z-10">
-                  <Link to="/admin-supervision" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
-                    Supervisi ADM
-                  </Link>
-                  <Link to="/kbm-supervision" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
-                    Supervisi KBM
-                  </Link>
-                  <Link to="/classic-supervision" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
-                    Supervisi Klasik
-                  </Link>
-                </div>
+                {dropdownOpen && (
+                  <div className="dropdown-content z-10 block animate-fadeIn">
+                    <Link 
+                      to="/admin-supervision" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Supervisi ADM
+                    </Link>
+                    <Link 
+                      to="/kbm-supervision" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Supervisi KBM
+                    </Link>
+                    <Link 
+                      to="/classic-supervision" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Supervisi Klasik
+                    </Link>
+                  </div>
+                )}
               </div>
               <Link to="/headmaster-notes" className={`nav-link text-white hover:bg-blue-600 ${isActive('/headmaster-notes')}`}>
                 <NotebookPen className="mr-2 h-5 w-5" />
@@ -96,7 +132,7 @@ const Layout = ({ children }: LayoutProps) => {
             </nav>
             
             {/* Mobile menu button */}
-            <div className="flex items-center md:hidden">
+            <div className="flex items-center lg:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-md text-white hover:text-white hover:bg-blue-600"
@@ -113,7 +149,7 @@ const Layout = ({ children }: LayoutProps) => {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-blue-700">
+          <div className="lg:hidden bg-blue-700">
             <div className="pt-2 pb-3 space-y-1">
               <Link 
                 to="/" 

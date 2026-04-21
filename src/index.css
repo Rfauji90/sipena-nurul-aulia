@@ -41,7 +41,6 @@ body {
 }
 
 .dropdown-content {
-  display: none;
   position: absolute;
   background-color: #fff;
   min-width: 160px;
@@ -52,9 +51,7 @@ body {
   margin-top: 0.5rem;
 }
 
-.dropdown:hover .dropdown-content {
-  display: block;
-}
+/* Dropdown styles removed and handled via React state for "lock" behavior on click */
 
 /* Navigation link styles */
 .nav-link {
@@ -92,4 +89,20 @@ body {
 
 .animate-scaleIn {
   animation: scaleIn 0.2s ease-out forwards;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(2deg);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }

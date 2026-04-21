@@ -1,148 +1,159 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, ChartBar, ClipboardList, FileText, School, Users } from 'lucide-react';
 import { 
-  getAdminSupervisions,
-  getKBMSupervisions,
-  getClassicSupervisions,
-  getHeadmasterNotes,
-  getTeachers,
-  Teacher
-} from '../utils/helpers';
+  BookOpen, 
+  ChartBar, 
+  ClipboardList, 
+  FileText, 
+  School, 
+  Users, 
+  Play, 
+  CheckCircle, 
+  Zap, 
+  Cloud, 
+  Shield, 
+  ArrowRight,
+  Monitor,
+  Layout,
+  BarChart3,
+  Search,
+  Star
+} from 'lucide-react';
 
 // Create a unified interface for all types of updates
-interface RecentUpdate {
-  id: string;
-  teacherId?: string;
-  teacherName: string;
-  unit?: string;
-  date: string;
-  score?: number;
-  grade?: string;
-  notes?: string;
-  type: string;
-  // For HeadmasterNote specific fields
-  categories?: string[];
-  note?: string;
-}
-
 const Home = () => {
-  const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadRecentUpdates();
-  }, []);
-
-  // Add a function to manually refresh updates
-  const refreshUpdates = () => {
-    loadRecentUpdates();
-  };
-
-  const loadRecentUpdates = async () => {
-    setLoading(true);
-    try {
-      // Load all types of supervisions
-      const adminSupervisions = await getAdminSupervisions();
-      const kbmSupervisions = await getKBMSupervisions();
-      const classicSupervisions = await getClassicSupervisions();
-      const headmasterNotes = await getHeadmasterNotes();
-      const teachers = await getTeachers();
-
-      // Debug: Log the data to see what we're working with
-      console.log('Admin Supervisions:', adminSupervisions);
-      console.log('KBM Supervisions:', kbmSupervisions);
-      console.log('Classic Supervisions:', classicSupervisions);
-      console.log('Headmaster Notes:', headmasterNotes);
-      console.log('Teachers:', teachers);
-
-      // Create a map of teacher ID to teacher for quick lookup
-      const teacherMap = new Map<string, Teacher>();
-      teachers.forEach(teacher => {
-        teacherMap.set(teacher.id, teacher);
-      });
-
-      // Combine all updates with type information
-      const allUpdates: RecentUpdate[] = [
-        ...adminSupervisions.map(s => ({ ...s, type: 'ADM' })),
-        ...kbmSupervisions.map(s => ({ ...s, type: 'KBM' })),
-        ...classicSupervisions.map(s => ({ ...s, type: 'Klasik' })),
-        ...headmasterNotes.map(n => {
-          // Find the teacher to get their unit
-          const teacher = teacherMap.get(n.teacherId);
-          return {
-            id: n.id,
-            teacherId: n.teacherId,
-            teacherName: n.teacherName,
-            date: n.date,
-            type: 'KS',
-            note: n.note,
-            categories: n.categories,
-            unit: teacher ? teacher.unit : undefined
-          };
-        })
-      ];
-
-      // Debug: Log combined updates
-      console.log('All Updates:', allUpdates);
-
-      // Sort by date (newest first) and take the 5 most recent
-      // More robust date sorting that handles different date formats
-      const sorted = allUpdates.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        
-        // Check if dates are valid
-        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
-        if (isNaN(dateA.getTime())) return 1;
-        if (isNaN(dateB.getTime())) return -1;
-        
-        return dateB.getTime() - dateA.getTime();
-      }).slice(0, 5);
-
-      // Debug: Log sorted updates
-      console.log('Sorted Updates:', sorted);
-
-      setRecentUpdates(sorted);
-    } catch (error) {
-      console.error("Error loading recent updates:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to get the update type name
-  const getUpdateTypeName = (type: string) => {
-    switch (type) {
-      case 'ADM': return 'Administrasi';
-      case 'KBM': return 'Kegiatan Belajar Mengajar';
-      case 'Klasik': return 'Klasik';
-      case 'KS': return 'Catatan KS';
-      default: return type;
-    }
-  };
-
-  // Function to get the update type color
-  const getUpdateTypeColor = (type: string) => {
-    switch (type) {
-      case 'ADM': return 'bg-purple-100 text-purple-800';
-      case 'KBM': return 'bg-yellow-100 text-yellow-800';
-      case 'Klasik': return 'bg-red-100 text-red-800';
-      case 'KS': return 'bg-indigo-100 text-indigo-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   return (
     <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl shadow-xl p-8 text-white text-center">
-        <h1 className="text-3xl font-bold mb-3">Selamat Datang di SiPeNa</h1>
-        <p className="text-xl mb-4">Sistem Pengelolaan Nilai Supervisi Nurul Aulia</p>
-        <p className="text-blue-100 max-w-2xl mx-auto">
-          Aplikasi ini dirancang untuk memudahkan proses pengelolaan dan pelaporan 
-          supervisi guru, memastikan kualitas pengajaran yang optimal di seluruh unit.
-        </p>
+      {/* Advanced Hero Section */}
+      <div className="flex flex-col lg:flex-row items-center gap-12 max-w-6xl mx-auto py-8 lg:py-16">
+        {/* Left Side: Text Details */}
+        <div className="flex-1 text-center lg:text-left space-y-6">
+          <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-sm font-medium mb-2 opacity-90">
+            <Star size={16} className="mr-2" />
+            100% Cepat • Efisien • Terintegrasi 🇮🇩
+          </div>
+          
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
+            Supervisi Digital <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-700 flex-none relative inline-block">Modern</span><br/> untuk Sekolah
+          </h1>
+          
+          <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+            Kelola penjadwalan, laporan mengajar, dan nilai supervisi guru secara otomatis langsung dari HP/Laptop. Tanpa repot mengurus kertas, tanpa ribet, lebih terpusat.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
+            <Link to="/dashboard" className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center w-full sm:w-auto">
+              Mulai Sekarang — Gratis! <ArrowRight size={20} className="ml-2" />
+            </Link>
+            <a href="#tutor" className="px-8 py-3.5 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-full shadow-sm transition-all flex items-center justify-center w-full sm:w-auto">
+              Lihat Fitur
+            </a>
+          </div>
+          
+          <div className="flex items-center justify-center lg:justify-start gap-3 sm:gap-6 text-xs sm:text-sm text-gray-500 font-medium pt-4">
+            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>Tanpa install</span>
+            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-gray-400 mr-2"></span>Aman di cloud</span>
+            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-gray-400 mr-2"></span>Akses dimana saja</span>
+          </div>
+        </div>
+
+        {/* Right Side: Phone Mockup */}
+        <div className="flex-1 w-full max-w-[280px] sm:max-w-[320px] lg:max-w-none mx-auto relative flex justify-center lg:justify-end animate-fadeIn">
+          <div className="absolute inset-0 bg-blue-100 rounded-full blur-[80px] opacity-70 transform translate-x-10 translate-y-10 w-[300px] h-[300px] right-0 z-0"></div>
+          <div className="absolute inset-0 bg-indigo-100 rounded-full blur-[80px] opacity-50 transform -translate-x-10 translate-y-20 w-[200px] h-[200px] left-0 z-0"></div>
+          
+          <div className="relative border-gray-800 dark:border-gray-800 bg-gray-800 border-[10px] rounded-[2.5rem] h-[550px] w-[270px] shadow-2xl overflow-hidden z-10 flex-shrink-0 animate-float transform rotate-2 lg:rotate-3 transition-transform hover:rotate-0 duration-500">
+            {/* Notch */}
+            <div className="w-[120px] h-[22px] bg-gray-800 absolute top-0 left-1/2 -translate-x-1/2 rounded-b-[1rem] z-20"></div>
+            
+            {/* Screen */}
+            <div className="bg-gray-50 w-full h-full p-5 overflow-hidden relative flex flex-col">
+              {/* Status Bar */}
+              <div className="flex justify-between items-center text-[11px] text-gray-600 mb-5 font-bold pt-1">
+                <span>9:41</span>
+                <span>100%</span>
+              </div>
+              
+              {/* Header */}
+              <div className="mb-5 flex justify-between items-center">
+                <div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">SIPENA</div>
+                  <div className="font-bold text-gray-800 text-sm">Supervisi Nurul Aulia</div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                  NA
+                </div>
+              </div>
+              
+              {/* Mock Search Bar */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2.5 flex items-center mb-6 text-xs text-gray-400">
+                <Search size={14} className="mr-2 text-gray-400" /> Cari menu atau data guru...
+              </div>
+              
+              {/* Cards Grid */}
+              <div className="grid grid-cols-2 gap-3 text-center text-xs font-semibold flex-1">
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-colors">
+                  <div className="p-3 bg-blue-50 rounded-full text-blue-600">
+                    <ChartBar size={22} />
+                  </div>
+                  <span>Dashboard</span>
+                </div>
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-green-50 transition-colors">
+                  <div className="p-3 bg-green-50 rounded-full text-green-600">
+                    <Users size={22} />
+                  </div>
+                  <span>Data Guru</span>
+                </div>
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-purple-50 transition-colors">
+                  <div className="p-3 bg-purple-50 rounded-full text-purple-600">
+                    <ClipboardList size={22} />
+                  </div>
+                  <span>ADM</span>
+                </div>
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-yellow-50 transition-colors">
+                  <div className="p-3 bg-yellow-50 rounded-full text-yellow-600">
+                    <BookOpen size={22} />
+                  </div>
+                  <span>KBM</span>
+                </div>
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-red-50 transition-colors">
+                  <div className="p-3 bg-red-50 rounded-full text-red-600">
+                    <School size={22} />
+                  </div>
+                  <span>Klasik</span>
+                </div>
+                <div className="bg-white text-gray-700 rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-indigo-50 transition-colors">
+                  <div className="p-3 bg-indigo-50 rounded-full text-indigo-600">
+                    <FileText size={22} />
+                  </div>
+                  <span>Catatan KS</span>
+                </div>
+              </div>
+              
+              {/* Bottom Nav Mock */}
+              <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400 font-medium px-2">
+                <div className="flex flex-col items-center text-blue-600">
+                  <Layout size={18} />
+                  <span className="mt-1">Beranda</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <Monitor size={18} />
+                  <span className="mt-1">Laporan</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FileText size={18} />
+                  <span className="mt-1">Catatan</span>
+                </div>
+              </div>
+
+              {/* Floating Action Button Alerts */}
+              <div className="absolute bottom-[4.5rem] right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg shadow-blue-500/40">
+                <div className="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 bg-green-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-bold">1</div>
+                <BookOpen size={20} />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Access Cards */}
@@ -229,66 +240,64 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Recent Updates Section */}
-      <div className="bg-white rounded-xl shadow-md p-6 border border-blue-100">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-800 flex items-center">
-            <span className="mr-2">🔔</span> Update Terbaru
-          </h2>
-          <button 
-            onClick={refreshUpdates}
-            className="text-sm text-blue-600 hover:text-blue-800"
-            disabled={loading}
-          >
-            Refresh
-          </button>
+      {/* Tutorial / Tutor Section */}
+      <div id="tutor" className="space-y-6 max-w-4xl mx-auto pt-8">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center justify-center">
+          <span className="mr-3 p-2 bg-blue-100 rounded-lg text-blue-600"><Play size={24} fill="currentColor" /></span>
+          Panduan Penggunaan (Tutor)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-md p-6 border-b-4 border-blue-500 hover:transform hover:-translate-y-1 transition-all">
+            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold mb-4">1</div>
+            <h4 className="font-bold text-gray-800 mb-2">Login Akun</h4>
+            <p className="text-sm text-gray-600">Masuk menggunakan akun administrator untuk mengakses seluruh fitur navigasi.</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6 border-b-4 border-green-500 hover:transform hover:-translate-y-1 transition-all">
+            <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600 font-bold mb-4">2</div>
+            <h4 className="font-bold text-gray-800 mb-2">Kelola Data Guru</h4>
+            <p className="text-sm text-gray-600">Pastikan data guru sudah terdaftar sesuai dengan unit masing-masing (RA, SD, SMP).</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6 border-b-4 border-yellow-500 hover:transform hover:-translate-y-1 transition-all">
+            <div className="w-10 h-10 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600 font-bold mb-4">3</div>
+            <h4 className="font-bold text-gray-800 mb-2">Input Supervisi</h4>
+            <p className="text-sm text-gray-600">Pilih jenis supervisi (ADM, KBM, atau Klasik) dan masukkan nilai serta catatan guru.</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6 border-b-4 border-purple-500 hover:transform hover:-translate-y-1 transition-all">
+            <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold mb-4">4</div>
+            <h4 className="font-bold text-gray-800 mb-2">Lihat Dashboard</h4>
+            <p className="text-sm text-gray-600">Pantau grafik perkembangan dan download laporan hasil supervisi secara berkala.</p>
+          </div>
         </div>
-        
-        {loading ? (
-          <div className="text-center py-4">
-            <p className="text-gray-500">Memuat update terbaru...</p>
+      </div>
+
+      {/* Keunggulan Section */}
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-blue-50 max-w-4xl mx-auto">
+        <div className="bg-blue-600 p-6 text-white text-center">
+          <h2 className="text-2xl font-bold">Mengapa Digitalisasi dengan Sipena?</h2>
+          <p className="text-blue-100 mt-2">Membawa administrasi sekolah ke level yang lebih modern dan efisien.</p>
+        </div>
+        <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl">
+              <Zap size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Efisiensi Tinggi</h3>
+            <p className="text-gray-600 text-sm italic">"Mengurangi beban administratif kertas dan mempercepat proses pelaporan hingga 80%."</p>
           </div>
-        ) : recentUpdates.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-gray-500 italic">Belum ada update supervisi</p>
+          <div className="flex flex-col items-center text-center space-y-4 border-x border-gray-100 px-4">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+              <Cloud size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Penyimpanan Terpusat</h3>
+            <p className="text-gray-600 text-sm italic">"Semua data guru dan riwayat supervisi tersimpan aman di cloud, akses kapan saja dan di mana saja."</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-blue-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guru</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Pendidikan</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis Supervisi</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal & Waktu Pengisian</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentUpdates.map((update, index) => (
-                  <tr key={update.id} className="hover:bg-blue-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{index + 1}</td>
-                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{update.teacherName}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{update.unit || '-'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUpdateTypeColor(update.type)}`}>
-                        {getUpdateTypeName(update.type)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {new Date(update.date).toLocaleDateString('id-ID')} - {new Date(update.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="p-4 bg-green-50 text-green-600 rounded-2xl">
+              <BarChart3 size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Analisis Akurat</h3>
+            <p className="text-gray-600 text-sm italic">"Visualisasi data dalam bentuk grafik membantu pimpinan mengambil keputusan berbasis data yang nyata."</p>
           </div>
-        )}
-        
-        <div className="mt-4 text-center">
-          <Link to="/dashboard" className="text-blue-600 font-medium hover:text-blue-800">
-            Lihat semua update →
-          </Link>
         </div>
       </div>
 

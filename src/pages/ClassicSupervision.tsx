@@ -8,7 +8,9 @@ import {
   deleteClassicSupervision,
   calculateGrade
 } from '../utils/helpers';
-import { Eye, Filter, Pencil, Search, Trash, X } from 'lucide-react';
+import { Eye, Filter, Pencil, Search, Trash, X, Download, School, ClipboardList } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { generateSupervisionPDF } from '../utils/exportUtils';
 
 const ClassicSupervision = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -25,8 +27,10 @@ const ClassicSupervision = () => {
   const [teacherSearch, setTeacherSearch] = useState('');
   const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
   const [unitFilter, setUnitFilter] = useState<'RA' | 'SD' | 'SMP' | ''>('');
+  const [yearFilter, setYearFilter] = useState<string>('');
   const [selectedSupervision, setSelectedSupervision] = useState<Supervision | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -129,6 +133,16 @@ const ClassicSupervision = () => {
       });
 
       setIsEditing(false);
+      
+      // Trigger confetti on success
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#b45309', '#f59e0b', '#fbbf24']
+      });
+
+      setShowForm(false);
       await loadData();
     } catch (err) {
       console.error('Error submitting form:', err);
@@ -141,6 +155,7 @@ const ClassicSupervision = () => {
   const handleEdit = (supervision: Supervision) => {
     setFormData(supervision);
     setIsEditing(true);
+    setShowForm(true);
     
     // Get teacher gender for the selected supervision
     const teacher = teachers.find(t => t.id === supervision.teacherId);
@@ -169,6 +184,15 @@ const ClassicSupervision = () => {
     setShowDetailModal(true);
   };
 
+  const handleDownloadPDF = (supervision: Supervision) => {
+    const teacher = teachers.find(t => t.id === supervision.teacherId);
+    if (teacher) {
+      generateSupervisionPDF(supervision, teacher, 'Klasik');
+    } else {
+      alert('Data guru tidak ditemukan untuk laporan ini.');
+    }
+  };
+
   const handleCancel = () => {
     setFormData({
       teacherId: '',
@@ -190,156 +214,255 @@ const ClassicSupervision = () => {
     setShowNoteModal(true);
   };
 
+  // Derived state for filtering and stats
+  const availableYears = Array.from(new Set(supervisions.map(s => s.date ? s.date.substring(0, 4) : '')))
+    .filter(Boolean)
+    .sort((a, b) => parseInt(b) - parseInt(a));
+
+  const filteredSupervisions = supervisions.filter(s => 
+    yearFilter === '' || (s.date && s.date.startsWith(yearFilter))
+  );
+
+  const stats = {
+    A: filteredSupervisions.filter(s => s.grade === 'A').length,
+    B: filteredSupervisions.filter(s => s.grade === 'B').length,
+    C: filteredSupervisions.filter(s => s.grade === 'C').length,
+    D: filteredSupervisions.filter(s => s.grade === 'D').length,
+  };
+
+  // Calculate supervision counts per teacher (based on filtered data)
+  const supervisionCounts = filteredSupervisions.reduce((acc, curr) => {
+    acc[curr.teacherId] = (acc[curr.teacherId] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="card">
-        <h2 className="text-xl font-semibold mb-4 text-blue-700">
-          {isEditing ? 'Edit Supervisi Klasik' : 'Tambah Supervisi Klasik'}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-medium mb-2">
-              Nama Guru
-            </label>
-            <div className="relative mb-2">
-              <input
-                type="text"
-                placeholder="Cari nama guru..."
-                value={teacherSearch}
-                onChange={handleTeacherSearch}
-                className="w-full p-2 pl-8 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
-              />
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-            </div>
-            <select
-              name="teacherId"
-              value={formData.teacherId}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="">Pilih Guru</option>
-              {filteredTeachers.map(teacher => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name} - {teacher.unit} ({teacher.gender === 'male' ? 'L' : 'P'})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-medium mb-2">
-              Tanggal Supervisi
-            </label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-medium mb-2">
-              Nilai Supervisi (0-100)
-            </label>
-            <input
-              type="number"
-              name="score"
-              min="0"
-              max="100"
-              value={formData.score}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            />
-            {previewGrade && (
-              <div className="mt-2">
-                <span className="text-sm">
-                  Grade: <span className="font-semibold">{previewGrade}</span>
-                </span>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+          <School className="mr-2 text-blue-600" />
+          Supervisi Klasik
+        </h1>
+        <button
+          onClick={() => {
+            if (showForm) {
+              handleCancel();
+              setShowForm(false);
+            } else {
+              setShowForm(true);
+            }
+          }}
+          className={`flex items-center px-4 py-2 rounded-md font-medium transition-all ${
+            showForm ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+          }`}
+        >
+          {showForm ? (
+            <>
+              <X size={18} className="mr-2" />
+              Tutup Form
+            </>
+          ) : (
+            <>
+              <ClipboardList size={18} className="mr-2" />
+              Tambah Supervisi Klasik
+            </>
+          )}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="card animate-fadeIn">
+          <h2 className="text-xl font-semibold mb-4 text-blue-700">
+            {isEditing ? 'Edit Supervisi Klasik' : 'Tambah Supervisi Klasik'}
+          </h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Nama Guru
+                </label>
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    placeholder="Cari nama guru..."
+                    value={teacherSearch}
+                    onChange={handleTeacherSearch}
+                    className="w-full p-2 pl-8 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={loading}
+                  />
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                </div>
+                <select
+                  name="teacherId"
+                  value={formData.teacherId}
+                  onChange={handleChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                >
+                  <option value="">Pilih Guru</option>
+                  {filteredTeachers.map(teacher => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name} - {teacher.unit} ({teacher.gender === 'male' ? 'L' : 'P'})
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-medium mb-2">
-              Catatan
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={4}
-              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Masukkan catatan"
-              disabled={loading}
-            ></textarea>
-          </div>
-          
-          <div className="flex space-x-2">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
-            </button>
+              
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Tanggal Supervisi
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Nilai Supervisi (0-100)
+                </label>
+                <input
+                  type="number"
+                  name="score"
+                  min="0"
+                  max="100"
+                  value={formData.score}
+                  onChange={handleChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                />
+                {previewGrade && (
+                  <div className="mt-2">
+                    <span className="text-sm">
+                      Grade: <span className="font-semibold">{previewGrade}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
             
-            {isEditing && (
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="btn btn-secondary"
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Catatan
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={8}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Masukkan catatan"
+                  disabled={loading}
+                ></textarea>
+              </div>
+              
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={loading}
+                >
+                  {loading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCancel();
+                    setShowForm(false);
+                  }}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+      
+      {/* Cards Info */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-green-200 p-4 flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-gray-500 mb-1">Grade A</span>
+          <span className="text-3xl font-bold text-green-600 px-3 py-1 bg-green-50 rounded-lg">{stats.A}</span>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-gray-500 mb-1">Grade B</span>
+          <span className="text-3xl font-bold text-blue-600 px-3 py-1 bg-blue-50 rounded-lg">{stats.B}</span>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-yellow-200 p-4 flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-gray-500 mb-1">Grade C</span>
+          <span className="text-3xl font-bold text-yellow-600 px-3 py-1 bg-yellow-50 rounded-lg">{stats.C}</span>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-4 flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-gray-500 mb-1">Grade D</span>
+          <span className="text-3xl font-bold text-red-600 px-3 py-1 bg-red-50 rounded-lg">{stats.D}</span>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <h2 className="text-xl font-semibold text-blue-700">Daftar Supervisi Klasik</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-2">
+              <Filter size={18} className="text-blue-600" />
+              <select
+                value={unitFilter}
+                onChange={handleFilterChange}
+                className="border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               >
-                Batal
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-      
-      <div className="card">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-700">Daftar Supervisi Klasik</h2>
-          <div className="flex items-center space-x-2">
-            <Filter size={18} className="text-blue-600" />
-            <select
-              value={unitFilter}
-              onChange={handleFilterChange}
-              className="border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="">Semua Unit</option>
-              <option value="RA">RA</option>
-              <option value="SD">SD</option>
-              <option value="SMP">SMP</option>
-            </select>
+                <option value="">Semua Unit</option>
+                <option value="RA">RA</option>
+                <option value="SD">SD</option>
+                <option value="SMP">SMP</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loading}
+              >
+                <option value="">Semua Tahun</option>
+                {availableYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
         
-        {loading ? (
-          <div className="text-center py-4">
-            <p className="text-gray-500">Memuat data...</p>
+        {loading && supervisions.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500 animate-pulse">Memuat data supervisi...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-4">
-            <p className="text-red-500">{error}</p>
+          <div className="text-center py-10 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-red-500 font-medium">{error}</p>
           </div>
         ) : supervisions.length === 0 ? (
-          <p className="text-gray-500 italic">Belum ada data supervisi</p>
+          <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+            <p className="text-gray-500 italic">Belum ada data supervisi untuk unit ini</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-blue-50">
+              <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">JK</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
@@ -347,17 +470,22 @@ const ClassicSupervision = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {supervisions.map((supervision, index) => (
-                  <tr key={supervision.id} className="hover:bg-blue-50">
+                {filteredSupervisions.map((supervision, index) => (
+                  <tr key={supervision.id} className="hover:bg-blue-50 transition-colors">
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{index + 1}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{supervision.teacherName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-800">{supervision.teacherName}</td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
                       {supervision.teacherGender === 'male' ? 'L' : 'P'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{supervision.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{supervision.score}</td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold">
+                        {supervisionCounts[supervision.teacherId] || 0}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">{supervision.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-semibold">{supervision.score}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         supervision.grade === 'A' ? 'bg-green-100 text-green-800' : 
                         supervision.grade === 'B' ? 'bg-blue-100 text-blue-800' : 
                         supervision.grade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
@@ -366,31 +494,21 @@ const ClassicSupervision = () => {
                         {supervision.grade}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => handleDownloadPDF(supervision)}
+                          className="text-green-600 hover:text-green-800 transition-colors"
+                          title="Download PDF"
+                        >
+                          <Download size={18} />
+                        </button>
                         <button
                           onClick={() => handleDetail(supervision)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
                           title="Detail"
-                          disabled={loading}
                         >
                           <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(supervision)}
-                          className="text-yellow-600 hover:text-yellow-900"
-                          title="Edit"
-                          disabled={loading}
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(supervision.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Hapus"
-                          disabled={loading}
-                        >
-                          <Trash size={18} />
                         </button>
                       </div>
                     </td>
@@ -405,64 +523,109 @@ const ClassicSupervision = () => {
       {/* Detail Modal */}
       {showDetailModal && selectedSupervision && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-4xl w-full">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-blue-700">Detail Supervisi</h3>
+              <h3 className="text-lg font-medium text-blue-700">Detail Riwayat Supervisi Klasik</h3>
               <button 
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-2">
+            
+            <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 bg-blue-50 p-4 rounded-lg border border-blue-100">
               <div>
-                <span className="font-medium">Nama Guru:</span> {selectedSupervision.teacherName}
+                <span className="font-semibold text-gray-700">Nama Guru:</span> 
+                <span className="ml-2 text-gray-900">{selectedSupervision.teacherName}</span>
               </div>
               <div>
-                <span className="font-medium">Jenis Kelamin:</span> {selectedSupervision.teacherGender === 'male' ? 'Laki-laki (L)' : 'Perempuan (P)'}
-              </div>
-              <div>
-                <span className="font-medium">Tanggal Supervisi:</span> {selectedSupervision.date}
-              </div>
-              <div>
-                <span className="font-medium">Nilai:</span> {selectedSupervision.score}
-              </div>
-              <div>
-                <span className="font-medium">Grade:</span> 
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                  selectedSupervision.grade === 'A' ? 'bg-green-100 text-green-800' : 
-                  selectedSupervision.grade === 'B' ? 'bg-blue-100 text-blue-800' : 
-                  selectedSupervision.grade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {selectedSupervision.grade}
+                <span className="font-semibold text-gray-700">Jenis Kelamin:</span> 
+                <span className="ml-2 text-gray-900">
+                  {selectedSupervision.teacherGender === 'male' ? 'Laki-laki (L)' : 'Perempuan (P)'}
                 </span>
               </div>
-              <div>
-                <span className="font-medium">Catatan:</span>
-                <p className="mt-1 text-gray-700">
-                  {selectedSupervision.notes.length > 100 
-                    ? (
-                      <>
-                        {selectedSupervision.notes.substring(0, 100)}... 
-                        <button 
-                          onClick={() => handleReadMore(selectedSupervision.notes)}
-                          className="text-blue-600 hover:text-blue-800 text-sm ml-1"
-                        >
-                          Baca selengkapnya
-                        </button>
-                      </>
-                    ) 
-                    : selectedSupervision.notes
-                  }
-                </p>
-              </div>
             </div>
-            <div className="mt-6">
+            
+            <div className="overflow-x-auto max-h-[400px] border border-gray-200 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">Catatan</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {supervisions
+                    .filter(s => s.teacherId === selectedSupervision.teacherId)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((supervision, idx) => (
+                    <tr key={supervision.id} className="hover:bg-blue-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{idx + 1}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{supervision.date}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-800">{supervision.score}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          supervision.grade === 'A' ? 'bg-green-100 text-green-800' : 
+                          supervision.grade === 'B' ? 'bg-blue-100 text-blue-800' : 
+                          supervision.grade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {supervision.grade}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {supervision.notes.length > 80 ? (
+                          <>
+                            {supervision.notes.substring(0, 80)}...
+                            <button 
+                              onClick={() => handleReadMore(supervision.notes)}
+                              className="text-blue-600 hover:text-blue-800 text-xs ml-1 font-medium underline"
+                            >
+                              Baca selengkapnya
+                            </button>
+                          </>
+                        ) : (
+                          supervision.notes
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => {
+                              handleEdit(supervision);
+                              setShowDetailModal(false);
+                            }}
+                            className="text-yellow-600 hover:text-yellow-800 transition-colors"
+                            title="Edit"
+                            disabled={loading}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(supervision.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors"
+                            title="Hapus"
+                            disabled={loading}
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-6 flex justify-end">
               <button 
                 onClick={() => setShowDetailModal(false)}
-                className="btn btn-primary w-full"
+                className="btn btn-primary px-8"
               >
                 Tutup
               </button>
