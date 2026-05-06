@@ -345,10 +345,6 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Total Guru</h3>
                 <p className="text-3xl font-black text-gray-900 mt-1">{teacherCount}</p>
-                <p className="text-[10px] text-blue-500 font-bold mt-2 flex items-center">
-                  <Info size={12} className="mr-1" />
-                  {unitFilter ? `Unit ${unitFilter}` : 'Terintegrasi RA, SD, SMP'}
-                </p>
               </div>
             </div>
 
@@ -360,7 +356,6 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Supervisi ADM</h3>
                 <p className="text-3xl font-black text-gray-900 mt-1">{adminSupervisionCount}</p>
-                <p className="text-[10px] text-emerald-500 font-bold mt-2">Update terakhir 2024</p>
               </div>
             </div>
 
@@ -372,7 +367,6 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Supervisi KBM</h3>
                 <p className="text-3xl font-black text-gray-900 mt-1">{kbmSupervisionCount}</p>
-                <p className="text-[10px] text-amber-500 font-bold mt-2">Observasi Akademik</p>
               </div>
             </div>
 
@@ -384,7 +378,6 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Supervisi Klasik</h3>
                 <p className="text-3xl font-black text-gray-900 mt-1">{classicSupervisionCount}</p>
-                <p className="text-[10px] text-purple-500 font-bold mt-2">Budaya & Karakter</p>
               </div>
             </div>
           </div>
