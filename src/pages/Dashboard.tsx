@@ -25,7 +25,6 @@ import {
   BookOpen, 
   Award,
   Activity,
-  Info,
   Calendar
 } from 'lucide-react';
 
