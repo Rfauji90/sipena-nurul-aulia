@@ -22,7 +22,6 @@ import {
   UserX, 
   TrendingDown, 
   CheckCircle, 
-  BarChart3, 
   BookOpen, 
   Award,
   Activity,
@@ -56,7 +55,6 @@ const Dashboard = () => {
   const [gradeData, setGradeData] = useState({ A: 0, B: 0, C: 0, D: 0 });
   const [unitFilter, setUnitFilter] = useState<'RA' | 'SD' | 'SMP' | ''>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
-  const [teachersByUnit, setTeachersByUnit] = useState({ RA: 0, SD: 0, SMP: 0 });
   const [loading, setLoading] = useState(false);
   const [performanceGrowthData, setPerformanceGrowthData] = useState<any>(null);
 
@@ -73,11 +71,6 @@ const Dashboard = () => {
     try {
       // Load teachers by unit
       const teachers = await getTeachers();
-      const byUnit = { RA: 0, SD: 0, SMP: 0 };
-      teachers.forEach(teacher => {
-        byUnit[teacher.unit]++;
-      });
-      setTeachersByUnit(byUnit);
 
       // Filter based on unit selection
       const filteredTeachers = unitFilter 
@@ -287,33 +280,6 @@ const Dashboard = () => {
           font: { weight: 'bold' as const }
         }
       }
-    }
-  };
-
-  const barChartData = {
-    labels: ['A (90-100)', 'B (80-89)', 'C (70-79)', 'D (<70)'],
-    datasets: [
-      {
-        label: 'Distribusi Nilai',
-        data: [gradeData.A, gradeData.B, gradeData.C, gradeData.D],
-        backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#6b7280'],
-      },
-    ],
-  };
-
-  const barChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: { display: false },
-      title: {
-        display: true,
-        text: 'Distribusi Nilai Keseluruhan',
-        color: '#1e40af',
-        font: { size: 16, weight: 'bold' as const }
-      },
-    },
-    scales: {
-      y: { beginAtZero: true, ticks: { precision: 0 } }
     }
   };
 
