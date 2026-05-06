@@ -8,9 +8,32 @@ import {
   deleteAdminSupervision,
   calculateGrade
 } from '../utils/helpers';
-import { Eye, Filter, Pencil, Search, Trash, X, Download, ClipboardList } from 'lucide-react';
+import { Eye, Filter, Pencil, Search, Trash, X, Download, ClipboardList, TrendingUp, BarChart3, FileText, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { generateSupervisionPDF } from '../utils/exportUtils';
+import { Line } from 'react-chartjs-2';
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  PointElement, 
+  LineElement, 
+  Title, 
+  Tooltip, 
+  Legend,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const AdminSupervision = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -25,7 +48,7 @@ const AdminSupervision = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [previewGrade, setPreviewGrade] = useState('');
   const [unitFilter, setUnitFilter] = useState<'RA' | 'SD' | 'SMP' | ''>('');
-  const [yearFilter, setYearFilter] = useState<string>('');
+  const [yearFilter, setYearFilter] = useState<string[]>([]);
   const [selectedSupervision, setSelectedSupervision] = useState<Supervision | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -34,7 +57,7 @@ const AdminSupervision = () => {
   const [loading, setLoading] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [activeTab, setActiveTab] = useState<'list' | 'dashboard'>('list');
   const [_selectedTeacherGender, setSelectedTeacherGender] = useState<'male' | 'female' | ''>('');
 
   useEffect(() => {
@@ -218,7 +241,7 @@ const AdminSupervision = () => {
     .sort((a, b) => parseInt(b) - parseInt(a));
 
   const filteredSupervisions = supervisions.filter(s => 
-    yearFilter === '' || (s.date && s.date.startsWith(yearFilter))
+    yearFilter.length === 0 || (s.date && yearFilter.includes(s.date.substring(0, 4)))
   );
 
   const stats = {
@@ -236,38 +259,127 @@ const AdminSupervision = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-blue-100 gap-4">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-          <ClipboardList className="mr-2 text-blue-600" />
+          <ClipboardList className="mr-3 text-blue-600" size={28} />
           Supervisi Administrasi
         </h1>
-        <button
-          onClick={() => {
-            if (showForm) {
-              handleCancel();
-              setShowForm(false);
-            } else {
-              setShowForm(true);
-            }
-          }}
-          className={`flex items-center px-4 py-2 rounded-md font-medium transition-all ${
-            showForm ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
-          }`}
-        >
-          {showForm ? (
-            <>
-              <X size={18} className="mr-2" />
-              Tutup Form
-            </>
-          ) : (
-            <>
-              <ClipboardList size={18} className="mr-2" />
-              Tambah Supervisi ADM
-            </>
-          )}
-        </button>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex space-x-1 bg-blue-50/50 p-1 rounded-xl border border-blue-100">
+            <button 
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === 'list' 
+                  ? 'bg-white text-blue-600 shadow-sm' 
+                  : 'text-blue-400 hover:text-blue-600 hover:bg-blue-50/50'
+              }`}
+            >
+              <ClipboardList size={16} className="mr-2" />
+              Daftar
+            </button>
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === 'dashboard' 
+                  ? 'bg-white text-blue-600 shadow-sm' 
+                  : 'text-blue-400 hover:text-blue-600 hover:bg-blue-50/50'
+              }`}
+            >
+              <BarChart3 size={16} className="mr-2" />
+              Dashboard
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              if (showForm) {
+                handleCancel();
+                setShowForm(false);
+              } else {
+                setShowForm(true);
+                setActiveTab('list'); // Switch to list if form is opened
+              }
+            }}
+            className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
+              showForm ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+            }`}
+          >
+            {showForm ? (
+              <>
+                <X size={18} className="mr-2" />
+                Tutup Form
+              </>
+            ) : (
+              <>
+                <ClipboardList size={18} className="mr-2" />
+                Tambah Supervisi
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Shared Filter Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-x-8 gap-y-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+            <Filter size={18} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Unit</span>
+            <select
+              value={unitFilter}
+              onChange={handleFilterChange}
+              className="border-none p-0 pr-8 text-sm font-semibold text-gray-700 focus:ring-0 cursor-pointer bg-transparent"
+              disabled={loading}
+            >
+              <option value="">Semua Unit</option>
+              <option value="RA">Unit RA</option>
+              <option value="SD">Unit SD</option>
+              <option value="SMP">Unit SMP</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+            <TrendingUp size={18} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Filter Tahun</span>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {availableYears.map(year => (
+                <button
+                  key={year}
+                  onClick={() => {
+                    if (yearFilter.includes(year)) {
+                      setYearFilter(yearFilter.filter(y => y !== year));
+                    } else {
+                      setYearFilter([...yearFilter, year]);
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs rounded-full border transition-all ${
+                    yearFilter.includes(year)
+                      ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  {year}
+                </button>
+              ))}
+              {yearFilter.length > 0 && (
+                <button
+                  onClick={() => setYearFilter([])}
+                  className="px-2 py-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       {showForm && (
         <div className="card animate-fadeIn">
           <h2 className="text-xl font-semibold mb-4 text-blue-700">
@@ -386,59 +498,37 @@ const AdminSupervision = () => {
         </div>
       )}
       
-      {/* Cards Info */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-green-200 p-4 flex flex-col items-center justify-center">
-          <span className="text-sm font-medium text-gray-500 mb-1">Grade A</span>
-          <span className="text-3xl font-bold text-green-600 px-3 py-1 bg-green-50 rounded-lg">{stats.A}</span>
+        <div className="bg-white rounded-xl shadow-sm border border-green-100 p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-green-50 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-150 opacity-50"></div>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 relative z-10">Grade A</span>
+          <span className="text-4xl font-black text-green-600 relative z-10">{stats.A}</span>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 flex flex-col items-center justify-center">
-          <span className="text-sm font-medium text-gray-500 mb-1">Grade B</span>
-          <span className="text-3xl font-bold text-blue-600 px-3 py-1 bg-blue-50 rounded-lg">{stats.B}</span>
+        <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-150 opacity-50"></div>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 relative z-10">Grade B</span>
+          <span className="text-4xl font-black text-blue-600 relative z-10">{stats.B}</span>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-yellow-200 p-4 flex flex-col items-center justify-center">
-          <span className="text-sm font-medium text-gray-500 mb-1">Grade C</span>
-          <span className="text-3xl font-bold text-yellow-600 px-3 py-1 bg-yellow-50 rounded-lg">{stats.C}</span>
+        <div className="bg-white rounded-xl shadow-sm border border-yellow-100 p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-50 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-150 opacity-50"></div>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 relative z-10">Grade C</span>
+          <span className="text-4xl font-black text-yellow-600 relative z-10">{stats.C}</span>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-4 flex flex-col items-center justify-center">
-          <span className="text-sm font-medium text-gray-500 mb-1">Grade D</span>
-          <span className="text-3xl font-bold text-red-600 px-3 py-1 bg-red-50 rounded-lg">{stats.D}</span>
+        <div className="bg-white rounded-xl shadow-sm border border-red-100 p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-red-50 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-150 opacity-50"></div>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 relative z-10">Grade D</span>
+          <span className="text-4xl font-black text-red-600 relative z-10">{stats.D}</span>
         </div>
       </div>
 
-      <div className="card">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-xl font-semibold text-blue-700">Daftar Supervisi Administrasi</h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center space-x-2">
-              <Filter size={18} className="text-blue-600" />
-              <select
-                value={unitFilter}
-                onChange={handleFilterChange}
-                className="border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
-              >
-                <option value="">Semua Unit</option>
-                <option value="RA">RA</option>
-                <option value="SD">SD</option>
-                <option value="SMP">SMP</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <select
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-                className="border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
-              >
-                <option value="">Semua Tahun</option>
-                {availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
+      {activeTab === 'list' ? (
+        <div className="card">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h2 className="text-xl font-bold text-blue-700 flex items-center">
+              <ClipboardList className="mr-2" />
+              Daftar Supervisi Administrasi
+            </h2>
           </div>
-        </div>
         
         {loading && supervisions.length === 0 ? (
           <div className="text-center py-10">
@@ -513,8 +603,263 @@ const AdminSupervision = () => {
           </div>
         )}
       </div>
+      ) : (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Dashboard View */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Chart Column */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                    <TrendingUp className="mr-2 text-blue-600" size={20} />
+                    Tren Kemajuan Penilaian Guru (Per Tahun)
+                  </h3>
+                  <div className="text-xs text-gray-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                    Berdasarkan Rata-rata Skor
+                  </div>
+                </div>
+                
+                <div className="h-[400px] w-full">
+                  {(() => {
+                    const years = yearFilter.length > 0 
+                      ? yearFilter.sort() 
+                      : Array.from(new Set(supervisions.map(s => s.date ? s.date.substring(0, 4) : ''))).filter(Boolean).sort();
 
-      {/* Detail Modal */}
+                    if (years.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400 italic">
+                          <BarChart3 size={48} className="mb-2 opacity-20" />
+                          <p>Data belum tersedia untuk grafik</p>
+                        </div>
+                      );
+                    }
+
+                    const units = unitFilter ? [unitFilter] : ['RA', 'SD', 'SMP'];
+                    const unitColors = {
+                      RA: { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' },
+                      SD: { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
+                      SMP: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
+                    };
+
+                    const datasets = units.map(unit => {
+                      const averages = years.map(year => {
+                        const unitYearSupervisions = supervisions.filter(s => 
+                          s.unit === unit && s.date && s.date.startsWith(year)
+                        );
+                        if (unitYearSupervisions.length === 0) return null;
+                        const sum = unitYearSupervisions.reduce((acc, curr) => acc + curr.score, 0);
+                        return (sum / unitYearSupervisions.length).toFixed(1);
+                      });
+
+                      return {
+                        label: `Unit ${unit}`,
+                        data: averages,
+                        borderColor: unitColors[unit as keyof typeof unitColors].border,
+                        backgroundColor: unitColors[unit as keyof typeof unitColors].bg,
+                        fill: false,
+                        tension: 0.3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: unitColors[unit as keyof typeof unitColors].border,
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        spanGaps: true
+                      };
+                    });
+
+                    // Add an "Average All" dataset if multiple units are shown
+                    if (!unitFilter && units.length > 1) {
+                      const allAverages = years.map(year => {
+                        const yearSupervisions = supervisions.filter(s => s.date && s.date.startsWith(year));
+                        if (yearSupervisions.length === 0) return null;
+                        const sum = yearSupervisions.reduce((acc, curr) => acc + curr.score, 0);
+                        return (sum / yearSupervisions.length).toFixed(1);
+                      });
+
+                      datasets.push({
+                        label: 'Rata-rata Gabungan',
+                        data: allAverages as any,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: false,
+                        tension: 0.4,
+                        borderDash: [5, 5],
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#6366f1',
+                        pointBorderWidth: 1,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        spanGaps: true
+                      } as any);
+                    }
+
+                    const data = {
+                      labels: years,
+                      datasets: datasets
+                    };
+
+                    const options = {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: {
+                        mode: 'index' as const,
+                        intersect: false,
+                      },
+                      plugins: {
+                        legend: { 
+                          display: true,
+                          position: 'top' as const,
+                          labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: { size: 12, weight: 'bold' as const }
+                          }
+                        },
+                        tooltip: {
+                          backgroundColor: '#1e293b',
+                          padding: 12,
+                          titleFont: { size: 14 },
+                          bodyFont: { size: 13 },
+                          cornerRadius: 8,
+                          boxPadding: 6
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: false,
+                          min: 0,
+                          max: 100,
+                          grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                          ticks: { 
+                            font: { size: 12 },
+                            callback: (value: any) => value
+                          },
+                          title: {
+                            display: true,
+                            text: 'Skor Rata-rata',
+                            font: { size: 12, weight: 'bold' as const }
+                          }
+                        },
+                        x: {
+                          grid: { display: false },
+                          ticks: { font: { size: 12, weight: 'bold' as const } }
+                        }
+                      }
+                    };
+
+                    return <Line data={data} options={options} />;
+                  })()}
+                </div>
+              </div>
+
+              {/* Progress Detail Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-6 rounded-xl text-white shadow-md">
+                  <h4 className="text-blue-100 text-sm font-medium mb-1">Total Penilaian</h4>
+                  <p className="text-3xl font-bold">{supervisions.length}</p>
+                  <div className="mt-4 flex items-center text-xs text-blue-100">
+                    <Info size={14} className="mr-1" />
+                    Mencakup seluruh unit dan tahun
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-blue-100 shadow-sm">
+                  <h4 className="text-gray-500 text-sm font-medium mb-1">Skor Tertinggi</h4>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {supervisions.length > 0 ? Math.max(...supervisions.map(s => s.score)) : 0}
+                  </p>
+                  <div className="mt-4 flex items-center text-xs text-green-600 font-medium">
+                    <TrendingUp size={14} className="mr-1" />
+                    Target performa: 90+ (Grade A)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Special Report Column */}
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100 h-full flex flex-col">
+                <div className="flex items-center mb-6">
+                  <div className="p-2 bg-orange-100 rounded-lg text-orange-600 mr-3">
+                    <FileText size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    KL Laporan Khusus Singkat
+                  </h3>
+                </div>
+
+                <div className="flex-1 space-y-4">
+                  {(() => {
+                    if (supervisions.length === 0) {
+                      return <p className="text-gray-400 italic">Belum ada data untuk menyusun laporan.</p>;
+                    }
+
+                    // Simple analysis logic
+                    const yearlyData = supervisions.reduce((acc, s) => {
+                      const year = s.date ? s.date.substring(0, 4) : 'Unknown';
+                      if (!acc[year]) acc[year] = { total: 0, count: 0 };
+                      acc[year].total += s.score;
+                      acc[year].count += 1;
+                      return acc;
+                    }, {} as Record<string, { total: number, count: number }>);
+
+                    const years = Object.keys(yearlyData).sort();
+                    const latestYear = years[years.length - 1];
+                    const prevYear = years[years.length - 2];
+                    
+                    const latestAvg = (yearlyData[latestYear].total / yearlyData[latestYear].count);
+                    const prevAvg = prevYear ? (yearlyData[prevYear].total / yearlyData[prevYear].count) : null;
+                    
+                    const diff = prevAvg ? (latestAvg - prevAvg) : 0;
+                    const status = diff > 0 ? 'Peningkatan' : diff < 0 ? 'Penurunan' : 'Stabil';
+
+                    return (
+                      <div className="prose prose-sm text-gray-700 leading-relaxed">
+                        <p className="font-medium text-gray-900 border-l-4 border-orange-400 pl-3 py-1 bg-orange-50/50 rounded-r-md mb-4">
+                          Ringkasan Kinerja Guru {unitFilter ? `Unit ${unitFilter}` : 'Seluruh Unit'}
+                        </p>
+                        
+                        <ul className="space-y-3 list-none p-0">
+                          <li className="flex items-start">
+                            <span className="h-5 w-5 rounded-full bg-orange-100 text-orange-600 flex-shrink-0 flex items-center justify-center text-[10px] font-bold mr-3 mt-0.5">1</span>
+                            <span>Hingga saat ini, tercatat <strong>{supervisions.length}</strong> sesi supervisi administrasi yang telah dilaksanakan.</span>
+                          </li>
+                          <li className="flex items-start">
+                            <span className="h-5 w-5 rounded-full bg-orange-100 text-orange-600 flex-shrink-0 flex items-center justify-center text-[10px] font-bold mr-3 mt-0.5">2</span>
+                            <span>Tahun <strong>{latestYear}</strong> menunjukkan rata-rata nilai sebesar <strong>{latestAvg.toFixed(1)}</strong>.</span>
+                          </li>
+                          {prevAvg !== null && (
+                            <li className="flex items-start">
+                              <span className="h-5 w-5 rounded-full bg-orange-100 text-orange-600 flex-shrink-0 flex items-center justify-center text-[10px] font-bold mr-3 mt-0.5">3</span>
+                              <span>Terdapat <strong>{status.toLowerCase()}</strong> sebesar <strong>{Math.abs(diff).toFixed(1)}</strong> poin dibandingkan tahun {prevYear}.</span>
+                            </li>
+                          )}
+                          <li className="flex items-start">
+                            <span className="h-5 w-5 rounded-full bg-orange-100 text-orange-600 flex-shrink-0 flex items-center justify-center text-[10px] font-bold mr-3 mt-0.5">{prevAvg !== null ? '4' : '3'}</span>
+                            <span>Distribusi grade didominasi oleh <strong>Grade {stats.A > stats.B ? 'A' : 'B'}</strong>, yang menunjukkan kualitas administrasi yang cukup terjaga.</span>
+                          </li>
+                        </ul>
+
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Rekomendasi Strategis:</h4>
+                          <p className="text-xs italic">
+                            "Pertahankan konsistensi dokumentasi pada setiap unit. Fokuskan pendampingan pada guru dengan Grade C untuk meningkatkan standar kualitas administrasi sekolah secara menyeluruh."
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                
+                <div className="mt-6 pt-6 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
+                  <span>Laporan Otomatis Sistem</span>
+                  <span>{new Date().toLocaleDateString('id-ID')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {showDetailModal && selectedSupervision && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-4xl w-full">
