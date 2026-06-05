@@ -10,6 +10,19 @@ export const exportToExcel = (data: any[], fileName: string) => {
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 
+// Excel Export with Multiple Sheets
+export const exportCompleteToExcel = (summaryData: any[], historyData: any[], fileName: string) => {
+  const workbook = XLSX.utils.book_new();
+  
+  const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Ringkasan Guru');
+  
+  const historySheet = XLSX.utils.json_to_sheet(historyData);
+  XLSX.utils.book_append_sheet(workbook, historySheet, 'Riwayat Supervisi');
+  
+  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};
+
 // PDF Export for Single Supervision
 export const generateSupervisionPDF = (supervision: any, teacher: any, type: string) => {
   const doc = new jsPDF();

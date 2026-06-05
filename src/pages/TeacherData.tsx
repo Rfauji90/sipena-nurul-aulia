@@ -273,11 +273,11 @@ const TeacherData = () => {
       const kbmSupervisions = await getKBMSupervisions();
       const classicSupervisions = await getClassicSupervisions();
       
-      // Combine all supervisions
+      // Combine all supervisions with type metadata
       const allSupervisionsCombined = [
-        ...adminSupervisions,
-        ...kbmSupervisions,
-        ...classicSupervisions
+        ...adminSupervisions.map(s => ({ ...s, type: 'Administrasi' })),
+        ...kbmSupervisions.map(s => ({ ...s, type: 'KBM' })),
+        ...classicSupervisions.map(s => ({ ...s, type: 'Klasik' }))
       ];
       
       setAllSupervisions(allSupervisionsCombined);
@@ -778,25 +778,86 @@ const TeacherData = () => {
   const handleExportToExcel = async () => {
     try {
       setLoading(true);
-      const dataToExport = teachers.map((t, i) => ({
-        'No': i + 1,
-        'Nama': t.name,
-        'Jenis Kelamin': t.gender === 'male' ? 'L' : 'P',
-        'Unit': t.unit,
-        'Kelas': t.className,
-        'Mata Pelajaran': t.subject,
-        'Jabatan': t.position,
-        'Update Terakhir': allSupervisions
-          .filter(s => s.teacherId === t.id)
-          .reduce((latest, s) => {
-            const d = new Date(s.date);
-            return d > latest ? d : latest;
-          }, new Date(0))
-          .toLocaleDateString('id-ID')
-      }));
       
-      const { exportToExcel } = await import('../utils/exportUtils');
-      exportToExcel(dataToExport, `Daftar_Guru_${unitFilter || 'Semua'}_${new Date().toISOString().split('T')[0]}`);
+      // 1. Prepare Summary Data
+      const summaryData = teachers.map((t, i) => {
+        const avgInfo = teacherAverages[t.id];
+        
+        // Filter supervisions for this teacher by year if mainYearFilter is active
+        let teacherSups = allSupervisions.filter(s => s.teacherId === t.id);
+        if (mainYearFilter) {
+          teacherSups = teacherSups.filter(s => s.date && s.date.startsWith(mainYearFilter));
+        }
+        
+        const admCount = teacherSups.filter(s => (s as any).type === 'Administrasi').length;
+        const kbmCount = teacherSups.filter(s => (s as any).type === 'KBM').length;
+        const classicCount = teacherSups.filter(s => (s as any).type === 'Klasik').length;
+        
+        return {
+          'No': i + 1,
+          'Nama Guru': t.name,
+          'Jenis Kelamin': t.gender === 'male' ? 'L' : 'P',
+          'Unit': t.unit,
+          'Kelas': t.className,
+          'Mata Pelajaran': t.subject,
+          'Jabatan': t.position,
+          'Sesi ADM': admCount,
+          'Sesi KBM': kbmCount,
+          'Sesi KLASIK': classicCount,
+          'Total Sesi': teacherSups.length,
+          'Rata-rata Nilai': avgInfo && avgInfo.averageScore !== null ? avgInfo.averageScore.toFixed(1) : '-',
+          'Grade Rata-rata': avgInfo && avgInfo.averageGrade ? avgInfo.averageGrade : '-',
+          'Update Terakhir': teacherSups.length > 0 
+            ? teacherSups
+                .reduce((latest, s) => {
+                  const d = new Date(s.date);
+                  return d > latest ? d : latest;
+                }, new Date(0))
+                .toLocaleDateString('id-ID')
+            : '-'
+        };
+      });
+
+      // 2. Prepare Detailed History Data
+      const historyData: any[] = [];
+      let counter = 1;
+      
+      teachers.forEach(t => {
+        let teacherSups = allSupervisions.filter(s => s.teacherId === t.id);
+        if (mainYearFilter) {
+          teacherSups = teacherSups.filter(s => s.date && s.date.startsWith(mainYearFilter));
+        }
+        
+        // Sort supervisions by date descending
+        teacherSups.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        teacherSups.forEach(s => {
+          historyData.push({
+            'No': counter++,
+            'Nama Guru': t.name,
+            'Jenis Kelamin': t.gender === 'male' ? 'L' : 'P',
+            'Unit': t.unit,
+            'Jenis Supervisi': (s as any).type || '-',
+            'Tanggal': s.date,
+            'Nilai': s.score,
+            'Grade': s.grade,
+            'Catatan': s.notes
+          });
+        });
+      });
+      
+      const { exportCompleteToExcel } = await import('../utils/exportUtils');
+      
+      let filterInfo = '';
+      if (unitFilter) filterInfo += `_Unit_${unitFilter}`;
+      if (mainYearFilter) filterInfo += `_Tahun_${mainYearFilter}`;
+      if (gradeFilter) filterInfo += `_Grade_${gradeFilter}`;
+      
+      exportCompleteToExcel(
+        summaryData, 
+        historyData, 
+        `Daftar_Guru_Lengkap${filterInfo}_${new Date().toISOString().split('T')[0]}`
+      );
     } catch (err) {
       console.error('Error exporting to Excel:', err);
       alert('Gagal mengekspor data ke Excel.');
