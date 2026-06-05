@@ -114,7 +114,7 @@ const Layout = ({ children }: LayoutProps) => {
               </Link>
               <Link to="/terms" className={`nav-link text-white hover:bg-blue-600 ${isActive('/terms')}`}>
                 <FileText className="mr-2 h-5 w-5" />
-                <span>Syarat & Ketentuan</span>
+                <span>S&K</span>
               </Link>
               
               {/* User Role & Logout */}
@@ -256,7 +256,7 @@ const Layout = ({ children }: LayoutProps) => {
               >
                 <div className="flex items-center">
                   <FileText className="mr-3 h-5 w-5" />
-                  <span>Syarat & Ketentuan</span>
+                  <span>S&K</span>
                 </div>
               </Link>
               

@@ -59,6 +59,102 @@ const TeacherData = () => {
     kbm: [],
     classic: []
   });
+
+  const [selectedYearFilter, setSelectedYearFilter] = useState<string>('');
+
+  const [mainYearFilter, setMainYearFilter] = useState<string>('');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
+
+  // Extract all unique years from all supervisions in the system
+  const allAvailableYears = useMemo(() => {
+    const years = new Set<string>();
+    allSupervisions.forEach(s => {
+      if (s.date) {
+        const year = s.date.split('-')[0];
+        if (year) years.add(year);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [allSupervisions]);
+
+  // Memoized map of teacher ID to their average score and grade based on mainYearFilter
+  const teacherAverages = useMemo(() => {
+    const averages: { [teacherId: string]: { averageScore: number | null, averageGrade: string | null } } = {};
+    
+    allTeachers.forEach(teacher => {
+      let supervisions = allSupervisions.filter(s => s.teacherId === teacher.id);
+      
+      if (mainYearFilter) {
+        supervisions = supervisions.filter(s => s.date && s.date.startsWith(mainYearFilter));
+      }
+      
+      if (supervisions.length === 0) {
+        averages[teacher.id] = { averageScore: null, averageGrade: null };
+      } else {
+        const sum = supervisions.reduce((acc, curr) => acc + curr.score, 0);
+        const avg = sum / supervisions.length;
+        const roundedAvg = Math.round(avg);
+        const grade = calculateGrade(roundedAvg);
+        averages[teacher.id] = { averageScore: avg, averageGrade: grade };
+      }
+    });
+    
+    return averages;
+  }, [allTeachers, allSupervisions, mainYearFilter]);
+
+  // Extract all unique years from the selected teacher's supervisions
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    const allSups = [
+      ...teacherSupervisions.admin,
+      ...teacherSupervisions.kbm,
+      ...teacherSupervisions.classic
+    ];
+    allSups.forEach(s => {
+      if (s.date) {
+        const year = s.date.split('-')[0];
+        if (year) years.add(year);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [teacherSupervisions]);
+
+  // Filter supervisions by selected year
+  const filteredAdminSupervisions = useMemo(() => {
+    if (!selectedYearFilter) return teacherSupervisions.admin;
+    return teacherSupervisions.admin.filter(s => s.date && s.date.startsWith(selectedYearFilter));
+  }, [teacherSupervisions.admin, selectedYearFilter]);
+
+  const filteredKbmSupervisions = useMemo(() => {
+    if (!selectedYearFilter) return teacherSupervisions.kbm;
+    return teacherSupervisions.kbm.filter(s => s.date && s.date.startsWith(selectedYearFilter));
+  }, [teacherSupervisions.kbm, selectedYearFilter]);
+
+  const filteredClassicSupervisions = useMemo(() => {
+    if (!selectedYearFilter) return teacherSupervisions.classic;
+    return teacherSupervisions.classic.filter(s => s.date && s.date.startsWith(selectedYearFilter));
+  }, [teacherSupervisions.classic, selectedYearFilter]);
+
+  // Calculate average score and convert to ABCD grade
+  const { averageScore, averageGrade } = useMemo(() => {
+    const allFiltered = [
+      ...filteredAdminSupervisions,
+      ...filteredKbmSupervisions,
+      ...filteredClassicSupervisions
+    ];
+    
+    if (allFiltered.length === 0) {
+      return { averageScore: null, averageGrade: null };
+    }
+    
+    const sum = allFiltered.reduce((acc, curr) => acc + curr.score, 0);
+    const avg = sum / allFiltered.length;
+    const roundedAvg = Math.round(avg);
+    const grade = calculateGrade(roundedAvg);
+    
+    return { averageScore: avg, averageGrade: grade };
+  }, [filteredAdminSupervisions, filteredKbmSupervisions, filteredClassicSupervisions]);
+
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'ascending' | 'descending';
@@ -256,6 +352,14 @@ const TeacherData = () => {
     if (unitFilter) {
       filtered = filtered.filter(teacher => teacher.unit === unitFilter);
     }
+
+    // Filter by average grade
+    if (gradeFilter) {
+      filtered = filtered.filter(teacher => {
+        const avgInfo = teacherAverages[teacher.id];
+        return avgInfo && avgInfo.averageGrade === gradeFilter;
+      });
+    }
     
     // Sort
     if (filtered.length > 0) {
@@ -276,7 +380,7 @@ const TeacherData = () => {
     }
     
     return filtered;
-  }, [allTeachers, debouncedSearchTerm, unitFilter, sortConfig]);
+  }, [allTeachers, debouncedSearchTerm, unitFilter, gradeFilter, teacherAverages, sortConfig]);
 
   // Update teachers when filtered results change
   useEffect(() => {
@@ -510,6 +614,7 @@ const TeacherData = () => {
         classic: classicSupervisions.filter(s => s.teacherId === teacher.id) || []
       });
       
+      setSelectedYearFilter('');
       setShowDetailModal(true);
     } catch (err) {
       console.error('Error loading supervisions:', err);
@@ -1042,8 +1147,10 @@ const TeacherData = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center space-x-2">
                   <Filter size={16} className="text-blue-600 mr-1" />
+                  
+                  {/* Unit Filter */}
                   <select
                     value={unitFilter}
                     onChange={handleUnitFilterChange}
@@ -1055,21 +1162,46 @@ const TeacherData = () => {
                     <option value="SD">SD</option>
                     <option value="SMP">SMP</option>
                   </select>
+
+                  {/* Year Filter */}
+                  <select
+                    value={mainYearFilter}
+                    onChange={(e) => setMainYearFilter(e.target.value)}
+                    className="border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    disabled={loading}
+                  >
+                    <option value="">Semua Tahun</option>
+                    {allAvailableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+
+                  {/* Grade Filter */}
+                  <select
+                    value={gradeFilter}
+                    onChange={(e) => setGradeFilter(e.target.value)}
+                    className="border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    disabled={loading}
+                  >
+                    <option value="">Semua Grade</option>
+                    <option value="A">Grade A</option>
+                    <option value="B">Grade B</option>
+                    <option value="C">Grade C</option>
+                    <option value="D">Grade D</option>
+                  </select>
                 </div>
               </div>
               
               {/* Search Results Info */}
-              {(debouncedSearchTerm || unitFilter) && (
+              {(debouncedSearchTerm || unitFilter || mainYearFilter || gradeFilter) && (
                 <div className="mb-4 text-sm text-gray-600">
-                  {debouncedSearchTerm && (
-                    <span>
-                      Hasil pencarian untuk "<strong>{debouncedSearchTerm}</strong>"
-                      {unitFilter && ` di unit ${unitFilter}`}: {teachers.length} guru ditemukan
-                    </span>
-                  )}
-                  {!debouncedSearchTerm && unitFilter && (
-                    <span>Filter unit {unitFilter}: {teachers.length} guru ditemukan</span>
-                  )}
+                  <span>
+                    Filter aktif: {teachers.length} guru ditemukan
+                    {debouncedSearchTerm && <span> (Pencarian: "<strong>{debouncedSearchTerm}</strong>")</span>}
+                    {unitFilter && <span> (Unit: <strong>{unitFilter}</strong>)</span>}
+                    {mainYearFilter && <span> (Tahun: <strong>{mainYearFilter}</strong>)</span>}
+                    {gradeFilter && <span> (Grade Rata-rata: <strong>{gradeFilter}</strong>)</span>}
+                  </span>
                   {teachers.length === 0 && (
                     <span className="text-orange-600"> - Tidak ada data yang sesuai</span>
                   )}
@@ -1158,6 +1290,9 @@ const TeacherData = () => {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Jumlah
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rata-rata
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Update Terakhir
                       </th>
@@ -1194,6 +1329,29 @@ const TeacherData = () => {
                           <span className="inline-flex items-center justify-center px-2 py-1 text-sm font-bold leading-none text-blue-100 bg-blue-700 rounded-full">
                             {(supervisionStatus[teacher.id]?.adm || 0) + (supervisionStatus[teacher.id]?.kbm || 0) + (supervisionStatus[teacher.id]?.klasik || 0)}
                           </span>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-center">
+                          {(() => {
+                            const avgInfo = teacherAverages[teacher.id];
+                            if (!avgInfo || avgInfo.averageScore === null) {
+                              return <span className="text-gray-400 italic text-sm">-</span>;
+                            }
+                            return (
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <span className="text-sm font-semibold text-gray-700">
+                                  {avgInfo.averageScore.toFixed(1)}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  avgInfo.averageGrade === 'A' ? 'bg-green-100 text-green-800' : 
+                                  avgInfo.averageGrade === 'B' ? 'bg-blue-100 text-blue-800' : 
+                                  avgInfo.averageGrade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {avgInfo.averageGrade}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-700">
                           {/* We'll implement the last update logic here */}
@@ -1299,10 +1457,49 @@ const TeacherData = () => {
             
             {/* Supervision History Tabs */}
             <div className="mt-4">
-              <h4 className="text-md font-semibold text-blue-700 mb-3 flex items-center">
-                <Calendar size={18} className="mr-2" />
-                Riwayat Supervisi
-              </h4>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-3 mb-4 gap-4">
+                <h4 className="text-md font-semibold text-blue-700 flex items-center">
+                  <Calendar size={18} className="mr-2" />
+                  Riwayat Supervisi
+                </h4>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Year Filter */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-700">Tahun:</span>
+                    <select
+                      value={selectedYearFilter}
+                      onChange={(e) => setSelectedYearFilter(e.target.value)}
+                      className="border border-gray-300 rounded px-2.5 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Semua Tahun</option>
+                      {availableYears.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Average Score Summary Card */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1 flex items-center space-x-2 shadow-sm">
+                    <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider">Rata-rata Nilai:</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-sm font-bold text-blue-900">
+                        {averageScore !== null ? averageScore.toFixed(1) : '-'}
+                      </span>
+                      {averageScore !== null && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                          averageGrade === 'A' ? 'bg-green-100 text-green-800' : 
+                          averageGrade === 'B' ? 'bg-blue-100 text-blue-800' : 
+                          averageGrade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {averageGrade}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               <div className="border rounded-lg overflow-hidden">
                 {/* Admin Supervisions */}
@@ -1310,7 +1507,7 @@ const TeacherData = () => {
                   <div className="bg-blue-100 px-4 py-2">
                     <h5 className="font-medium">Supervisi Administrasi</h5>
                   </div>
-                  {teacherSupervisions.admin.length === 0 ? (
+                  {filteredAdminSupervisions.length === 0 ? (
                     <p className="px-4 py-2 text-gray-500 italic text-sm">Belum ada data supervisi</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1326,7 +1523,7 @@ const TeacherData = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teacherSupervisions.admin.map((supervision, index) => (
+                          {filteredAdminSupervisions.map((supervision, index) => (
                             <tr key={supervision.id}>
                               <td className="px-2 py-2 whitespace-nowrap text-sm">{index + 1}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{supervision.date}</td>
@@ -1391,7 +1588,7 @@ const TeacherData = () => {
                   <div className="bg-green-100 px-4 py-2">
                     <h5 className="font-medium">Supervisi KBM</h5>
                   </div>
-                  {teacherSupervisions.kbm.length === 0 ? (
+                  {filteredKbmSupervisions.length === 0 ? (
                     <p className="px-4 py-2 text-gray-500 italic text-sm">Belum ada data supervisi</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1407,7 +1604,7 @@ const TeacherData = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teacherSupervisions.kbm.map((supervision, index) => (
+                          {filteredKbmSupervisions.map((supervision, index) => (
                             <tr key={supervision.id}>
                               <td className="px-2 py-2 whitespace-nowrap text-sm">{index + 1}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{supervision.date}</td>
@@ -1472,7 +1669,7 @@ const TeacherData = () => {
                   <div className="bg-yellow-100 px-4 py-2">
                     <h5 className="font-medium">Supervisi Klasik</h5>
                   </div>
-                  {teacherSupervisions.classic.length === 0 ? (
+                  {filteredClassicSupervisions.length === 0 ? (
                     <p className="px-4 py-2 text-gray-500 italic text-sm">Belum ada data supervisi</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1488,7 +1685,7 @@ const TeacherData = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teacherSupervisions.classic.map((supervision, index) => (
+                          {filteredClassicSupervisions.map((supervision, index) => (
                             <tr key={supervision.id}>
                               <td className="px-2 py-2 whitespace-nowrap text-sm">{index + 1}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{supervision.date}</td>
