@@ -364,8 +364,20 @@ const TeacherData = () => {
     // Sort
     if (filtered.length > 0) {
       filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key as keyof Teacher];
-        const bValue = b[sortConfig.key as keyof Teacher];
+        let aValue: any;
+        let bValue: any;
+        
+        if (sortConfig.key === 'averageScore') {
+          aValue = teacherAverages[a.id]?.averageScore;
+          bValue = teacherAverages[b.id]?.averageScore;
+          
+          // Treat null values (no scores) as lower than 0 (e.g. -1)
+          if (aValue === null || aValue === undefined) aValue = -1;
+          if (bValue === null || bValue === undefined) bValue = -1;
+        } else {
+          aValue = a[sortConfig.key as keyof Teacher];
+          bValue = b[sortConfig.key as keyof Teacher];
+        }
         
         if (aValue == null || bValue == null) return 0;
         
@@ -716,8 +728,10 @@ const TeacherData = () => {
 
   const handleSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
+    if (sortConfig.key === key) {
+      direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
+    } else {
+      direction = key === 'averageScore' ? 'descending' : 'ascending';
     }
     setSortConfig({ key, direction });
   };
@@ -1290,8 +1304,11 @@ const TeacherData = () => {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Jumlah
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rata-rata
+                      <th 
+                        className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('averageScore')}
+                      >
+                        Rata-rata {getSortIcon('averageScore')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Update Terakhir
